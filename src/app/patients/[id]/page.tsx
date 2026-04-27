@@ -188,7 +188,7 @@ export default function PatientDetailPage() {
                     <label className="text-xs text-gray-500 mb-1 block">{label}</label>
                     <input type={type}
                       value={(editForm as Record<string, string | number>)[field] ?? ""}
-                      onChange={(e) => setEditForm((f) => ({ ...f, [field]: e.target.value }))}
+                      onChange={(e) => setEditForm((f) => ({ ...f, [field]: type === "number" ? Number(e.target.value) : e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
                   </div>
                 ))}
