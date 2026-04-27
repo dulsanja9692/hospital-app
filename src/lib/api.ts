@@ -8,9 +8,11 @@ const BASE_URL = rawBaseUrl.endsWith("/") ? rawBaseUrl : `${rawBaseUrl}/`;
 
 const api = axios.create({
   baseURL: BASE_URL,
-  // TEMPORARY FIX: Disabled withCredentials because backend is returning wildcard '*' for CORS.
-  // This allows login to work but breaks the httpOnly refresh token.
   withCredentials: false,
+  headers: {
+    "Accept": "application/json",
+    "Content-Type": "application/json",
+  },
 });
 
 // ── In-memory token storage (never localStorage) ──────────
@@ -21,15 +23,16 @@ export const setAccessToken = (token: string | null) => {
 };
 export const getAccessToken = () => accessToken;
 
-// ── Attach token & enforce trailing slashes ────────────────
+// ── Attach token & debug logging ──────────────────────────
 api.interceptors.request.use((config) => {
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;
   }
-  // Ensure every endpoint ends with a slash (some backends are picky)
-  if (config.url && !config.url.endsWith("/") && !config.url.includes("?")) {
-    config.url = `${config.url}/`;
-  }
+  const fullUrl = `${config.baseURL}${config.url}`;
+  console.log(`[API Request] ${config.method?.toUpperCase()} ${fullUrl}`, {
+    hasToken: !!accessToken,
+    headers: config.headers
+  });
   return config;
 });
 
