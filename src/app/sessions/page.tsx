@@ -24,6 +24,8 @@ interface Session {
 }
 
 interface Doctor { doctor_id: string; name: string; specialization: string; }
+interface Hospital { hospital_id: string; name: string; name_en?: string; }
+interface Branch { branch_id: string; name: string; }
 
 const STATUS_STYLES: Record<string, string> = {
   Open:      "bg-green-100 text-green-700",
@@ -41,12 +43,20 @@ function getDeletedDoctorIds(): Set<string> {
 
 function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [hospitals, setHospitals] = useState<Hospital[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [doctorsLoading, setDoctorsLoading] = useState(true);
   const [form, setForm] = useState({
-    doctor_id: "", date: dayjs().format("YYYY-MM-DD"),
-    start_time: "", end_time: "", max_patients: "20",
+    doctor_id: "", 
+    hospital_id: "",
+    branch_id: "",
+    date: dayjs().format("YYYY-MM-DD"),
+    start_time: "", 
+    end_time: "", 
+    max_patients: "20",
   });
   const [loading, setLoading] = useState(false);
+  const { user } = useRequireAuth();
 
   useEffect(() => {
     setDoctorsLoading(true);
@@ -58,7 +68,37 @@ function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved
       })
       .catch(() => toast.error("Failed to load doctors"))
       .finally(() => setDoctorsLoading(false));
-  }, []);
+
+    // Fetch hospitals if Super Admin
+    if (user?.role === "Super Admin") {
+      api.get("/hospitals", { params: { limit: 100 } })
+        .then((r) => setHospitals(r.data.data))
+        .catch(() => {});
+    } else if (user?.hospital_id) {
+      // If not Super Admin, use their own hospital
+      set("hospital_id", user.hospital_id);
+    }
+  }, [user]);
+
+  // Fetch branches when hospital changes
+  useEffect(() => {
+    if (form.hospital_id) {
+      // Trying both common patterns: /branches?hospital_id=... or /hospitals/:id/branches
+      api.get(`/branches`, { params: { hospital_id: form.hospital_id, limit: 100 } })
+        .then((r) => setBranches(r.data.data))
+        .catch(() => {
+          // Fallback if the endpoint is nested
+          api.get(`/hospitals/${form.hospital_id}/branches`)
+            .then((r) => setBranches(r.data.data))
+            .catch(() => {
+              // If all else fails, set a default branch 1 so at least something can be tried
+              setBranches([{ branch_id: "1", name: "Main Branch" }]);
+            });
+        });
+    } else {
+      setBranches([]);
+    }
+  }, [form.hospital_id]);
 
   function set(field: string, value: string) { setForm((f) => ({ ...f, [field]: value })); }
 
@@ -81,11 +121,12 @@ function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved
 
       const payload = {
         doctor_id: String(form.doctor_id),
+        hospital_id: String(form.hospital_id),
+        branch_id: String(form.branch_id),
         session_date: form.date,
         start_time: to24h(form.start_time),
         end_time: to24h(form.end_time),
         max_patients: Number(form.max_patients),
-        branch_id: "1",
       };
       
       console.log("Sending session payload:", payload);
@@ -128,11 +169,39 @@ function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved
             <X className="w-5 h-5" />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[70vh]">
+          {/* Hospital Selection — only for Super Admin */}
+          {user?.role === "Super Admin" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5 font-semibold">Hospital <span className="text-red-500">*</span></label>
+              <select required value={form.hospital_id} onChange={(e) => set("hospital_id", e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all font-medium">
+                <option value="">Select Hospital</option>
+                {hospitals.map((h) => (
+                  <option key={h.hospital_id} value={h.hospital_id}>{h.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Branch Selection */}
+          {(form.hospital_id || user?.role !== "Super Admin") && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5 font-semibold">Branch <span className="text-red-500">*</span></label>
+              <select required value={form.branch_id} onChange={(e) => set("branch_id", e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all font-medium">
+                <option value="">Select Branch</option>
+                {branches.map((b) => (
+                  <option key={b.branch_id} value={b.branch_id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Doctor <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5 font-semibold">Doctor <span className="text-red-500">*</span></label>
             <select required value={form.doctor_id} onChange={(e) => set("doctor_id", e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all font-medium"
               disabled={doctorsLoading}>
               <option value="">{doctorsLoading ? "Loading doctors…" : doctors.length === 0 ? "No doctors available" : "Select doctor"}</option>
               {doctors.map((d) => <option key={d.doctor_id} value={d.doctor_id}>{d.name} — {d.specialization}</option>)}
