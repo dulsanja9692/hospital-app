@@ -121,7 +121,7 @@ export default function DoctorsPage() {
                 )}
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
                   <span className="text-sm font-semibold text-gray-900">
-                    Rs {doc.consultation_fee.toLocaleString()}
+                    Rs {(doc.consultation_fee || 0).toLocaleString()}
                   </span>
                   <Arrow className="w-4 h-4 text-gray-300 group-hover:text-blue-400 transition-colors" />
                 </div>
