@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 import {
   Plus, Search, Loader2, X, Calendar, Clock,
   User, Stethoscope, Hash, ChevronLeft, ChevronRight, Filter,
-  Eye, Pencil, Trash2
+  Eye, Pencil, Trash2, CreditCard
 } from "lucide-react";
 import { useRequireAuth } from "@/hooks/useAuth";
 import api from "@/lib/api";
@@ -476,6 +476,12 @@ export default function AppointmentsPage() {
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-1">
+                        {apt.status === "Completed" && (
+                          <button onClick={() => router.push(`/payments?search=${apt.appointment_id}`)}
+                            className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 transition" title="View/Process Payment">
+                            <CreditCard className="w-4 h-4" />
+                          </button>
+                        )}
                         <button onClick={() => router.push(`/doctors/${apt.doctor.doctor_id}`)}
                           className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition" title="View Doctor Profile">
                           <Eye className="w-4 h-4" />

@@ -48,7 +48,7 @@ const NAV: NavItem[] = [
     label: "Doctors",
     href: "/doctors",
     icon: <Users className="w-4 h-4" />,
-    roles: ["Super Admin", "Hospital Admin", "Receptionist"],
+    roles: ["Super Admin", "Hospital Admin", "Receptionist", "Manager"],
   },
   {
     label: "Sessions",
@@ -69,7 +69,7 @@ const NAV: NavItem[] = [
     label: "Permissions",
     href: "/permissions",
     icon: <ShieldCheck className="w-4 h-4" />,
-    roles: ["Super Admin", "Hospital Admin", "Receptionist"],
+    roles: ["Super Admin", "Hospital Admin", "Receptionist", "Manager"],
     children: [
       {
         label: "Hospitals",
@@ -79,12 +79,12 @@ const NAV: NavItem[] = [
       {
         label: "Branches",
         href: "/permissions/branches",
-        roles: ["Super Admin", "Hospital Admin"],
+        roles: ["Super Admin", "Hospital Admin", "Manager"],
       },
       {
         label: "Users",
         href: "/permissions/users",
-        roles: ["Super Admin", "Hospital Admin", "Receptionist"],
+        roles: ["Super Admin", "Hospital Admin", "Receptionist", "Manager"],
       },
     ],
   },

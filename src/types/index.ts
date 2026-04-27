@@ -2,6 +2,7 @@
 export type Role =
   | "Super Admin"
   | "Hospital Admin"
+  | "Manager"
   | "Receptionist"
   | "Doctor"
   | "Accountant";
@@ -12,6 +13,7 @@ export interface AuthUser {
   email: string;
   role: Role;
   hospital_id: string;
+  branch_id?: string;
 }
 
 // ─── Hospital ────────────────────────────────────────────
@@ -27,13 +29,16 @@ export interface Branch {
   branch_id: string;
   hospital_id: string;
   name: string;
-  location?: string;
+  address?: string;
+  phone?: string;
+  created_at?: string;
 }
 
 // ─── User ────────────────────────────────────────────────
 export interface User {
   user_id: string;
   hospital_id: string;
+  branch_id?: string;
   name: string;
   email: string;
   role: Role;
@@ -65,8 +70,9 @@ export interface ApiError {
 // ─── Permissions matrix ──────────────────────────────────
 // Which roles each role can CREATE
 export const CREATABLE_ROLES: Record<Role, Role[]> = {
-  "Super Admin":    ["Super Admin", "Hospital Admin", "Receptionist", "Doctor", "Accountant"],
-  "Hospital Admin": ["Hospital Admin", "Receptionist", "Doctor", "Accountant"],
+  "Super Admin":    ["Super Admin", "Hospital Admin", "Manager", "Receptionist", "Doctor", "Accountant"],
+  "Hospital Admin": ["Hospital Admin", "Manager", "Receptionist", "Doctor", "Accountant"],
+  "Manager":        ["Manager", "Receptionist", "Doctor", "Accountant"],
   "Receptionist":   ["Receptionist", "Doctor", "Accountant"],
   "Doctor":         [],
   "Accountant":     [],
@@ -76,6 +82,7 @@ export const CREATABLE_ROLES: Record<Role, Role[]> = {
 export const CAN_ACCESS_PERMISSIONS: Role[] = [
   "Super Admin",
   "Hospital Admin",
+  "Manager",
   "Receptionist",
 ];
 

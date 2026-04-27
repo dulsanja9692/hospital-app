@@ -30,10 +30,10 @@ function BranchModal({ hospitalId, editBranch, hospitals, onClose, onSaved }: {
     setLoading(true);
     try {
       if (isEdit) {
-        await api.put(`/branches/${editBranch!.branch_id}`, form);
+        await api.put(`branches/${editBranch!.branch_id}`, form);
         toast.success("Branch updated successfully");
       } else {
-        await api.post("/branches", form);
+        await api.post("branches", form);
         toast.success("Branch created successfully");
       }
       onSaved(); onClose();
@@ -159,7 +159,7 @@ export default function BranchesPage() {
 
   useEffect(() => {
     if (currentUser?.role === "Super Admin") {
-      api.get("/hospitals", { params: { limit: 100 } })
+      api.get("hospitals", { params: { limit: 100 } })
         .then((r) => setHospitals(r.data.data))
         .catch(() => {});
     }
@@ -177,10 +177,10 @@ export default function BranchesPage() {
       // Fallback logic for branches endpoint
       const fetchCall = async () => {
         try {
-          return await api.get("/branches", { params });
+          return await api.get("branches", { params });
         } catch (e: any) {
           if (e?.response?.status === 404 && params.hospital_id) {
-            return await api.get(`/hospitals/${params.hospital_id}/branches`);
+            return await api.get(`hospitals/${params.hospital_id}/branches`);
           }
           throw e;
         }
@@ -202,7 +202,7 @@ export default function BranchesPage() {
   async function handleDelete(id: string) {
     if (!window.confirm("Are you sure you want to delete this branch?")) return;
     try {
-      await api.delete(`/branches/${id}`);
+      await api.delete(`branches/${id}`);
       toast.success("Branch deleted successfully");
       fetchBranches();
     } catch (err) {

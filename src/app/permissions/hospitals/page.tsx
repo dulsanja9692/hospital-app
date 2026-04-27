@@ -27,10 +27,10 @@ function HospitalModal({ hospital, onClose, onSaved }: {
     setLoading(true);
     try {
       if (isEdit) {
-        await api.put(`/hospitals/${hospital!.hospital_id}`, form);
+        await api.put(`hospitals/${hospital!.hospital_id}`, form);
         toast.success("Hospital updated successfully");
       } else {
-        await api.post("/hospitals", form);
+        await api.post("hospitals", form);
         toast.success("Hospital created successfully");
       }
       onSaved();
@@ -136,7 +136,7 @@ export default function HospitalsPage() {
   const fetchHospitals = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get("/hospitals");
+      const res = await api.get("hospitals");
       setHospitals(res.data.data);
       setMeta(res.data.meta ?? { total: res.data.data.length, page: 1, limit: 12 });
     } catch (err: unknown) {

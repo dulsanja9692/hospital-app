@@ -14,6 +14,7 @@ import dayjs from "dayjs";
 const ROLE_STYLES: Record<Role, string> = {
   "Super Admin":    "bg-purple-100 text-purple-700 border-purple-200",
   "Hospital Admin": "bg-blue-100 text-blue-700 border-blue-200",
+  "Manager":        "bg-indigo-100 text-indigo-700 border-indigo-200",
   "Receptionist":   "bg-green-100 text-green-700 border-green-200",
   "Doctor":         "bg-teal-100 text-teal-700 border-teal-200",
   "Accountant":     "bg-orange-100 text-orange-700 border-orange-200",
@@ -27,20 +28,37 @@ function RoleBadge({ role }: { role: Role }) {
   );
 }
 
-function UserModal({ currentUserRole, editUser, hospitals, onClose, onSaved }: {
-  currentUserRole: Role; editUser?: User; hospitals: Hospital[];
+function UserModal({ currentUser, editUser, hospitals, onClose, onSaved }: {
+  currentUser: AuthUser; editUser?: User; hospitals: Hospital[];
   onClose: () => void; onSaved: () => void;
 }) {
   const isEdit = !!editUser;
+  const currentUserRole = currentUser.role;
   const creatableRoles = CREATABLE_ROLES[currentUserRole];
   const [form, setForm] = useState({
     name: editUser?.name ?? "",
     email: editUser?.email ?? "",
     password: "",
     role: (editUser?.role ?? creatableRoles[0] ?? "") as Role | "",
-    hospital_id: editUser?.hospital_id ?? "",
+    hospital_id: editUser?.hospital_id ?? (currentUser.role !== "Super Admin" ? currentUser.hospital_id : ""),
+    branch_id: editUser?.branch_id ?? "",
   });
+  const [branches, setBranches] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (form.hospital_id) {
+      api.get("/branches", { params: { hospital_id: form.hospital_id, limit: 100 } })
+        .then(r => setBranches(r.data.data))
+        .catch(() => {
+          api.get(`/hospitals/${form.hospital_id}/branches`)
+            .then(r => setBranches(r.data.data))
+            .catch(() => setBranches([]));
+        });
+    } else {
+      setBranches([]);
+    }
+  }, [form.hospital_id]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -49,12 +67,13 @@ function UserModal({ currentUserRole, editUser, hospitals, onClose, onSaved }: {
     try {
       const payload: Record<string, string> = { name: form.name, email: form.email, role: form.role };
       if (!isEdit) payload.password = form.password;
-      if (currentUserRole === "Super Admin" && form.hospital_id) payload.hospital_id = form.hospital_id;
+      if (form.hospital_id) payload.hospital_id = form.hospital_id;
+      if (form.branch_id) payload.branch_id = form.branch_id;
       if (isEdit) {
-        await api.put(`/users/${editUser!.user_id}`, payload);
+        await api.put(`users/${editUser!.user_id}`, payload);
         toast.success("User updated successfully");
       } else {
-        await api.post("/users", payload);
+        await api.post("users", payload);
         toast.success("User created successfully");
       }
       onSaved(); onClose();
@@ -112,10 +131,20 @@ function UserModal({ currentUserRole, editUser, hospitals, onClose, onSaved }: {
           {currentUserRole === "Super Admin" && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Hospital</label>
-              <select value={form.hospital_id} onChange={(e) => setForm((f) => ({ ...f, hospital_id: e.target.value }))}
+              <select value={form.hospital_id} onChange={(e) => setForm((f) => ({ ...f, hospital_id: e.target.value, branch_id: "" }))}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all">
                 <option value="">— No specific hospital —</option>
                 {hospitals.map((h) => <option key={h.hospital_id} value={h.hospital_id}>{h.name}</option>)}
+              </select>
+            </div>
+          )}
+          {(form.hospital_id || currentUserRole !== "Super Admin") && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Branch</label>
+              <select value={form.branch_id} onChange={(e) => setForm((f) => ({ ...f, branch_id: e.target.value }))}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all">
+                <option value="">— No specific branch —</option>
+                {branches.map((b) => <option key={b.branch_id} value={b.branch_id}>{b.name}</option>)}
               </select>
             </div>
           )}
@@ -187,7 +216,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     if (currentUser?.role === "Super Admin") {
-      api.get("/hospitals", { params: { limit: 100 } })
+      api.get("hospitals", { params: { limit: 100 } })
         .then((r) => setHospitals(r.data.data))
         .catch(() => {});
     }
@@ -197,7 +226,7 @@ export default function UsersPage() {
     if (!currentUser) return;
     setLoading(true);
     try {
-      const res = await api.get("/users");
+      const res = await api.get("users");
       setUsers(res.data.data);
       setMeta(res.data.meta ?? { total: res.data.data.length, page: 1, limit: 15 });
     } catch (err: unknown) {
@@ -325,7 +354,7 @@ export default function UsersPage() {
       </div>
 
       {modalOpen && (
-        <UserModal currentUserRole={currentUser.role} editUser={editTarget} hospitals={hospitals}
+        <UserModal currentUser={currentUser} editUser={editTarget} hospitals={hospitals}
           onClose={() => setModalOpen(false)} onSaved={fetchUsers} />
       )}
     </div>

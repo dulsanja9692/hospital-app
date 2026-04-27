@@ -2,7 +2,7 @@ import axios from "axios";
 
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ||
-  "https://hospital-managemnt-system.vercel.app/api/v1";
+  "https://hospital-managemnt-system.vercel.app/api/v1/";
 
 const api = axios.create({
   baseURL: BASE_URL,
