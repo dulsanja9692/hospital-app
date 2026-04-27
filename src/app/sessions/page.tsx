@@ -33,8 +33,15 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 // ─── Create Session Modal ────────────────────────────────
-function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void; }) {
+// Filter out locally-deleted doctors from the dropdown
+function getDeletedDoctorIds(): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem("doctor_deleted_ids") || "[]")); }
+  catch { return new Set(); }
+}
+
+function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [doctorsLoading, setDoctorsLoading] = useState(true);
   const [form, setForm] = useState({
     doctor_id: "", date: dayjs().format("YYYY-MM-DD"),
     start_time: "", end_time: "", max_patients: "20",
@@ -42,9 +49,15 @@ function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    setDoctorsLoading(true);
     api.get("/doctors", { params: { limit: 100, status: "Active" } })
-      .then((r) => setDoctors(r.data.data))
-      .catch(() => {});
+      .then((r) => {
+        const deletedIds = getDeletedDoctorIds();
+        const filtered = (r.data.data as Doctor[]).filter(d => !deletedIds.has(d.doctor_id));
+        setDoctors(filtered);
+      })
+      .catch(() => toast.error("Failed to load doctors"))
+      .finally(() => setDoctorsLoading(false));
   }, []);
 
   function set(field: string, value: string) { setForm((f) => ({ ...f, [field]: value })); }
@@ -80,8 +93,9 @@ function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Doctor <span className="text-red-500">*</span></label>
             <select required value={form.doctor_id} onChange={(e) => set("doctor_id", e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all">
-              <option value="">Select doctor</option>
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+              disabled={doctorsLoading}>
+              <option value="">{doctorsLoading ? "Loading doctors…" : doctors.length === 0 ? "No doctors available" : "Select doctor"}</option>
               {doctors.map((d) => <option key={d.doctor_id} value={d.doctor_id}>{d.name} — {d.specialization}</option>)}
             </select>
           </div>
