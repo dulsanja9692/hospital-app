@@ -126,7 +126,7 @@ export default function HospitalsPage() {
 
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [loading, setLoading] = useState(true);
-  const [apiMissing, setApiMissing] = useState(false);
+
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState({ total: 0, page: 1, limit: 12 });
@@ -139,15 +139,8 @@ export default function HospitalsPage() {
       const res = await api.get("/hospitals", { params: { search, page, limit: 12 } });
       setHospitals(res.data.data);
       setMeta(res.data.meta ?? { total: res.data.data.length, page: 1, limit: 12 });
-      setApiMissing(false);
     } catch (err: unknown) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
-      const msg = getErrorMessage(err);
-      if (status === 404 || msg.toLowerCase().includes("route not found") || msg.toLowerCase().includes("not found")) {
-        setApiMissing(true);
-      } else {
-        toast.error(msg);
-      }
+      toast.error(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -172,19 +165,6 @@ export default function HospitalsPage() {
         </button>
       </div>
 
-      {/* API not built yet — friendly banner */}
-      {apiMissing && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-4 mb-6 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-semibold text-amber-800">Backend endpoint not available yet</p>
-            <p className="text-sm text-amber-700 mt-0.5">
-              The <code className="bg-amber-100 px-1 rounded text-xs">/hospitals</code> API endpoint has not been built by the backend team yet.
-              Once they add it, this page will work automatically.
-            </p>
-          </div>
-        </div>
-      )}
 
       <div className="relative mb-6 max-w-sm">
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -198,8 +178,8 @@ export default function HospitalsPage() {
       ) : hospitals.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-48 bg-white rounded-2xl border border-gray-100 text-gray-400">
           <Building2 className="w-10 h-10 mb-3 opacity-30" />
-          <p className="text-sm font-medium">{apiMissing ? "Waiting for backend…" : "No hospitals found"}</p>
-          {search && !apiMissing && (
+          <p className="text-sm font-medium">No hospitals found</p>
+          {search && (
             <button onClick={() => setSearch("")} className="text-xs text-blue-500 hover:underline mt-1">Clear search</button>
           )}
         </div>

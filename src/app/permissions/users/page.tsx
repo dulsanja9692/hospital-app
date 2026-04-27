@@ -174,7 +174,7 @@ export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [loading, setLoading] = useState(true);
-  const [apiMissing, setApiMissing] = useState(false);
+
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<Role | "">("");
   const [hospitalFilter, setHospitalFilter] = useState("");
@@ -204,15 +204,8 @@ export default function UsersPage() {
       const res = await api.get("/users", { params });
       setUsers(res.data.data);
       setMeta(res.data.meta ?? { total: res.data.data.length, page: 1, limit: 15 });
-      setApiMissing(false);
     } catch (err: unknown) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
-      const msg = getErrorMessage(err);
-      if (status === 404 || msg.toLowerCase().includes("route not found") || msg.toLowerCase().includes("not found")) {
-        setApiMissing(true);
-      } else {
-        toast.error(msg);
-      }
+      toast.error(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -269,19 +262,6 @@ export default function UsersPage() {
         )}
       </div>
 
-      {/* API missing banner */}
-      {apiMissing && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-4 mb-5 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-semibold text-amber-800">Backend endpoint not available yet</p>
-            <p className="text-sm text-amber-700 mt-0.5">
-              The <code className="bg-amber-100 px-1 rounded text-xs">/users</code> API endpoint has not been built by the backend team yet.
-              Once they add it, this page will work automatically.
-            </p>
-          </div>
-        </div>
-      )}
 
       {/* Permissions info */}
       <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 mb-5 flex items-start gap-3">
@@ -301,8 +281,8 @@ export default function UsersPage() {
         ) : users.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 text-gray-400">
             <UserCircle className="w-10 h-10 mb-3 opacity-30" />
-            <p className="text-sm font-medium">{apiMissing ? "Waiting for backend…" : "No users found"}</p>
-            {(search || roleFilter || hospitalFilter) && !apiMissing && (
+            <p className="text-sm font-medium">No users found</p>
+            {(search || roleFilter || hospitalFilter) && (
               <button onClick={() => { setSearch(""); setRoleFilter(""); setHospitalFilter(""); }}
                 className="text-xs text-blue-500 hover:underline mt-1">Clear filters</button>
             )}
