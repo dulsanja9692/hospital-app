@@ -136,7 +136,7 @@ export default function HospitalsPage() {
   const fetchHospitals = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get("/hospitals", { params: { search, page, limit: 12 } });
+      const res = await api.get("/hospitals");
       setHospitals(res.data.data);
       setMeta(res.data.meta ?? { total: res.data.data.length, page: 1, limit: 12 });
     } catch (err: unknown) {

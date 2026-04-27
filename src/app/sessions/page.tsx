@@ -121,7 +121,6 @@ function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved
 
       const payload = {
         doctor_id: String(form.doctor_id),
-        hospital_id: String(form.hospital_id),
         branch_id: String(form.branch_id),
         session_date: form.date,
         start_time: to24h(form.start_time),

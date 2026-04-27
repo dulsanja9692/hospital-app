@@ -197,11 +197,7 @@ export default function UsersPage() {
     if (!currentUser) return;
     setLoading(true);
     try {
-      const params: Record<string, unknown> = { page, limit: 15 };
-      if (search) params.search = search;
-      if (roleFilter) params.role = roleFilter;
-      if (hospitalFilter && currentUser.role === "Super Admin") params.hospital_id = hospitalFilter;
-      const res = await api.get("/users", { params });
+      const res = await api.get("/users");
       setUsers(res.data.data);
       setMeta(res.data.meta ?? { total: res.data.data.length, page: 1, limit: 15 });
     } catch (err: unknown) {

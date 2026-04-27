@@ -54,14 +54,18 @@ export default function AddDoctorPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await api.post("/doctors", { ...form, consultation_fee: Number(form.consultation_fee) });
+      // Never send hospital_id in request bodies — backend reads it from JWT automatically
+      const { hospital_id, branch_id, ...doctorData } = form;
+      const res = await api.post("/doctors", { 
+        ...doctorData, 
+        consultation_fee: Number(form.consultation_fee) 
+      });
       const newDoc = res.data.data;
       
       // Auto-create a default session for the newly added doctor
       if (newDoc?.doctor_id) {
         await api.post("/sessions", {
           doctor_id: String(newDoc.doctor_id),
-          hospital_id: String(form.hospital_id),
           branch_id: String(form.branch_id),
           session_date: dayjs().format("YYYY-MM-DD"),
           start_time: "09:00",
