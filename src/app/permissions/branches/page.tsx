@@ -180,7 +180,7 @@ export default function BranchesPage() {
           return await api.get("branch", { params });
         } catch (e: any) {
           if (e?.response?.status === 404 && params.hospital_id) {
-            return await api.get(`hospital/${params.hospital_id}/branches`);
+            return await api.get(`hospital/${params.hospital_id}/branch`);
           }
           throw e;
         }
@@ -202,7 +202,7 @@ export default function BranchesPage() {
   async function handleDelete(id: string) {
     if (!window.confirm("Are you sure you want to delete this branch?")) return;
     try {
-      await api.delete(`branches/${id}`);
+      await api.delete(`branch/${id}`);
       toast.success("Branch deleted successfully");
       fetchBranches();
     } catch (err) {

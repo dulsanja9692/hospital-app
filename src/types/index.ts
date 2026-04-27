@@ -32,6 +32,7 @@ export interface Branch {
   address?: string;
   phone?: string;
   created_at?: string;
+  hospital?: Hospital;
 }
 
 // ─── User ────────────────────────────────────────────────

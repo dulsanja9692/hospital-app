@@ -39,7 +39,7 @@ export default function AddDoctorPage() {
       api.get("branches", { params: { hospital_id: form.hospital_id, limit: 100 } })
         .then((r) => setBranches(r.data.data))
         .catch(() => {
-          api.get(`hospitals/${form.hospital_id}/branches`)
+          api.get(`hospital/${form.hospital_id}/branch`)
             .then((r) => setBranches(r.data.data))
             .catch(() => setBranches([{ branch_id: "1", name: "Main Branch" }]));
         });

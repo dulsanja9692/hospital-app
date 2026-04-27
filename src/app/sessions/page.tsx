@@ -88,7 +88,7 @@ function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved
         .then((r) => setBranches(r.data.data))
         .catch(() => {
           // Fallback if the endpoint is nested
-          api.get(`hospitals/${form.hospital_id}/branches`)
+          api.get(`hospital/${form.hospital_id}/branch`)
             .then((r) => setBranches(r.data.data))
             .catch(() => {
               // If all else fails, set a default branch 1 so at least something can be tried
