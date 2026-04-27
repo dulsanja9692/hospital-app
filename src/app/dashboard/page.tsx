@@ -200,28 +200,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* API Prober — Debugging Tool */}
-      <div className="mb-6 p-4 bg-amber-50 rounded-2xl border border-amber-100 flex flex-wrap items-center gap-3">
-        <div className="flex-1 min-w-[200px]">
-          <h3 className="text-sm font-semibold text-amber-900">API Route Finder</h3>
-          <p className="text-xs text-amber-700 mt-0.5">Click probe to find working hospital/branch endpoints</p>
-        </div>
-        <button onClick={async () => {
-          const routes = ["/hospitals", "/hospital", "/branches", "/branch", "/hospitals/1/branches", "/branches/1"];
-          for (const r of routes) {
-            try { 
-              const res = await api.get(r);
-              console.log(`✅ ${r}:`, res.status, res.data);
-              toast.success(`${r} works! Status: ${res.status}`);
-            } catch (e: any) { 
-              console.log(`❌ ${r}:`, e.response?.status);
-            }
-          }
-        }} className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-semibold transition shadow-sm">
-          🚀 Probe API Routes
-        </button>
-      </div>
-
       {/* ── Tab: Dashboard ── */}
       {tab === "dashboard" && (
         <div className="space-y-5">

@@ -1,23 +1,50 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { ArrowLeft, Loader2, Stethoscope } from "lucide-react";
 import { useRequireAuth } from "@/hooks/useAuth";
 import api from "@/lib/api";
 import { getErrorMessage } from "@/lib/utils";
-
 import dayjs from "dayjs";
+import { ArrowLeft, Loader2, Stethoscope, Building2, MapPin } from "lucide-react";
+
+interface Hospital { hospital_id: string; name: string; }
+interface Branch { branch_id: string; name: string; }
 
 export default function AddDoctorPage() {
   const router = useRouter();
-  const { isLoading: authLoading } = useRequireAuth(["Super Admin", "Hospital Admin"]);
-
   const [loading, setLoading] = useState(false);
+  const [hospitals, setHospitals] = useState<Hospital[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const { user, isLoading: authLoading } = useRequireAuth(["Super Admin", "Hospital Admin"]);
+
   const [form, setForm] = useState({
     name: "", specialization: "", phone: "",
     email: "", consultation_fee: "", status: "Active",
+    hospital_id: "", branch_id: "",
   });
+
+  useEffect(() => {
+    if (user?.role === "Super Admin") {
+      api.get("/hospitals", { params: { limit: 100 } })
+        .then((r) => setHospitals(r.data.data))
+        .catch(() => {});
+    } else if (user?.hospital_id) {
+      set("hospital_id", user.hospital_id);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (form.hospital_id) {
+      api.get("/branches", { params: { hospital_id: form.hospital_id, limit: 100 } })
+        .then((r) => setBranches(r.data.data))
+        .catch(() => {
+          api.get(`/hospitals/${form.hospital_id}/branches`)
+            .then((r) => setBranches(r.data.data))
+            .catch(() => setBranches([{ branch_id: "1", name: "Main Branch" }]));
+        });
+    }
+  }, [form.hospital_id]);
 
   function set(field: string, value: string) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -34,11 +61,12 @@ export default function AddDoctorPage() {
       if (newDoc?.doctor_id) {
         await api.post("/sessions", {
           doctor_id: String(newDoc.doctor_id),
+          hospital_id: String(form.hospital_id),
+          branch_id: String(form.branch_id),
           session_date: dayjs().format("YYYY-MM-DD"),
           start_time: "09:00",
           end_time: "17:00",
-          max_patients: 20,
-          branch_id: "1"
+          max_patients: 20
         }).catch(() => console.log("Auto-session generation failed"));
       }
 
@@ -68,8 +96,33 @@ export default function AddDoctorPage() {
 
       <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-100 p-6 space-y-6">
         <div>
-          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-4 pb-2 border-b border-gray-100">
-            Doctor Information
+          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-4 pb-2 border-b border-gray-100 flex items-center gap-2">
+            <Building2 className="w-4 h-4 text-blue-500" /> Location Details
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+            {user?.role === "Super Admin" && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Hospital <span className="text-red-500">*</span></label>
+                <select required value={form.hospital_id} onChange={(e) => set("hospital_id", e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all">
+                  <option value="">Select Hospital</option>
+                  {hospitals.map((h) => <option key={h.hospital_id} value={h.hospital_id}>{h.name}</option>)}
+                </select>
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Branch <span className="text-red-500">*</span></label>
+              <select required value={form.branch_id} onChange={(e) => set("branch_id", e.target.value)}
+                disabled={!form.hospital_id && user?.role === "Super Admin"}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all disabled:opacity-50">
+                <option value="">Select Branch</option>
+                {branches.map((b) => <option key={b.branch_id} value={b.branch_id}>{b.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-4 pb-2 border-b border-gray-100 flex items-center gap-2">
+            <Stethoscope className="w-4 h-4 text-teal-500" /> Doctor Information
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
