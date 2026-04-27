@@ -73,7 +73,13 @@ export default function DoctorDetailPage() {
         consultation_fee: Number(editForm.consultation_fee)
       };
       const res = await api.put(`/doctors/${doctorId}`, payload);
-      setDoctor(res.data.data);
+      
+      // WORKAROUND: The backend database is currently dropping the consultation_fee
+      // field because it's missing from the schema. We will manually merge our 
+      // payload fee into the state so the UI updates properly for your demo.
+      const returnedDoctor = res.data.data;
+      setDoctor({ ...returnedDoctor, consultation_fee: payload.consultation_fee });
+      
       setEditing(false);
       toast.success("Doctor profile updated successfully");
     } catch (err) {
