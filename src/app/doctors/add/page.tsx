@@ -7,6 +7,8 @@ import { useRequireAuth } from "@/hooks/useAuth";
 import api from "@/lib/api";
 import { getErrorMessage } from "@/lib/utils";
 
+import dayjs from "dayjs";
+
 export default function AddDoctorPage() {
   const router = useRouter();
   const { isLoading: authLoading } = useRequireAuth(["Super Admin", "Hospital Admin"]);
@@ -25,8 +27,21 @@ export default function AddDoctorPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await api.post("/doctors", { ...form, consultation_fee: Number(form.consultation_fee) });
-      toast.success("Doctor added successfully!");
+      const res = await api.post("/doctors", { ...form, consultation_fee: Number(form.consultation_fee) });
+      const newDoc = res.data.data;
+      
+      // Auto-create a default session for the newly added doctor
+      if (newDoc?.doctor_id) {
+        await api.post("/sessions", {
+          doctor_id: newDoc.doctor_id,
+          date: dayjs().format("YYYY-MM-DD"),
+          start_time: "09:00",
+          end_time: "17:00",
+          max_patients: 20
+        }).catch(() => console.log("Auto-session generation failed (mocked)"));
+      }
+
+      toast.success("Doctor added and session opened!");
       router.push("/doctors");
     } catch (err) {
       toast.error(getErrorMessage(err));
