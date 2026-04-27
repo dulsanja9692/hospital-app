@@ -80,7 +80,7 @@ function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved
       };
 
       const payload = {
-        doctor_id: form.doctor_id,
+        doctor_id: Number(form.doctor_id),
         date: form.date,
         start_time: to24h(form.start_time),
         end_time: to24h(form.end_time),
@@ -90,8 +90,13 @@ function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved
       toast.success("Session created successfully!");
       onSaved(); onClose();
     } catch (err: any) {
-      const detail = err?.response?.data?.message || err?.response?.data?.error || "";
-      toast.error(detail || getErrorMessage(err));
+      // Show specific validation errors if provided by backend
+      const errorData = err?.response?.data;
+      const detail = errorData?.message || errorData?.error || "";
+      const validationErrors = errorData?.errors ? Object.values(errorData.errors).flat().join(", ") : "";
+      
+      toast.error(validationErrors || detail || getErrorMessage(err), { duration: 5000 });
+      console.error("Session creation failed:", errorData);
     } finally {
       setLoading(false);
     }
