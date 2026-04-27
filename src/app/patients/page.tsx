@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import {
   Plus, Search, ChevronLeft, ChevronRight,
   Loader2, Phone, CreditCard, ChevronRight as Arrow, Users,
+  Eye, Pencil, Trash2,
 } from "lucide-react";
 import { useRequireAuth } from "@/hooks/useAuth";
 import api from "@/lib/api";
@@ -49,6 +50,18 @@ export default function PatientsPage() {
   useEffect(() => { setPage(1); }, [search]);
 
   const totalPages = Math.ceil(meta.total / meta.limit);
+
+  async function handleDelete(id: string) {
+    if (!window.confirm("Are you sure you want to delete this patient?")) return;
+    try {
+      await api.delete(`/patients/${id}`);
+      toast.success("Patient deleted");
+      fetchPatients();
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  }
+
   if (authLoading) return null;
 
   function avatarColor(name: string) {
@@ -120,15 +133,14 @@ export default function PatientsPage() {
                   <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">NIC / Passport</th>
                   <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Phone</th>
                   <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Registered</th>
-                  <th className="px-5 py-3.5" />
+                  <th className="px-5 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {patients.map((p) => (
                   <tr
                     key={p.patient_id}
-                    onClick={() => router.push(`/patients/${p.patient_id}`)}
-                    className="hover:bg-blue-50/40 transition-colors cursor-pointer group"
+                    className="hover:bg-blue-50/40 transition-colors group"
                   >
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
@@ -153,7 +165,20 @@ export default function PatientsPage() {
                     </td>
                     <td className="px-5 py-3.5 text-xs text-gray-400">{dayjs(p.created_at).format("MMM D, YYYY")}</td>
                     <td className="px-5 py-3.5 text-right">
-                      <Arrow className="w-4 h-4 text-gray-300 group-hover:text-blue-400 transition-colors" />
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => router.push(`/patients/${p.patient_id}`)}
+                          className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition" title="View">
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => router.push(`/patients/${p.patient_id}?edit=true`)}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition" title="Edit">
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleDelete(p.patient_id)}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition" title="Delete">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
