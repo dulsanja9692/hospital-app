@@ -17,6 +17,18 @@ function getCachedFees(): Record<string, number> {
   catch { return {}; }
 }
 
+// Cache deleted doctor IDs so they stay hidden after refresh
+const DELETED_KEY = "doctor_deleted_ids";
+function getDeletedIds(): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(DELETED_KEY) || "[]")); }
+  catch { return new Set(); }
+}
+function markDeleted(id: string) {
+  const ids = getDeletedIds();
+  ids.add(id);
+  localStorage.setItem(DELETED_KEY, JSON.stringify([...ids]));
+}
+
 interface Doctor {
   doctor_id: string;
   name: string;
@@ -45,14 +57,18 @@ export default function DoctorsPage() {
       if (search) params.search = search;
       if (statusFilter) params.status = statusFilter;
       const res = await api.get("/doctors", { params });
-      // Merge locally-cached fees since backend doesn't persist them
+      // Filter out locally-deleted doctors & merge cached fees
+      const deletedIds = getDeletedIds();
       const feeCache = getCachedFees();
-      const merged = res.data.data.map((d: Doctor) => ({
-        ...d,
-        consultation_fee: feeCache[d.doctor_id] ?? d.consultation_fee
-      }));
+      const merged = res.data.data
+        .filter((d: Doctor) => !deletedIds.has(d.doctor_id))
+        .map((d: Doctor) => ({
+          ...d,
+          consultation_fee: feeCache[d.doctor_id] ?? d.consultation_fee
+        }));
       setDoctors(merged);
-      setMeta(res.data.meta ?? { total: res.data.data.length, page: 1, limit: 20 });
+      const filteredTotal = res.data.data.length - (res.data.data.filter((d: Doctor) => deletedIds.has(d.doctor_id)).length);
+      setMeta({ ...(res.data.meta ?? { total: res.data.data.length, page: 1, limit: 20 }), total: filteredTotal });
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -69,11 +85,13 @@ export default function DoctorsPage() {
     if (!window.confirm("Are you sure you want to delete this doctor?")) return;
     try {
       await api.delete(`/doctors/${id}`);
+      markDeleted(id); // persist deletion
       toast.success("Doctor deleted");
       fetchDoctors();
     } catch (err: any) {
       if (err?.response?.status === 404 || err?.response?.status === 400) {
-        // Backend doesn't have DELETE route yet — remove from local state
+        // Backend doesn't have DELETE route — persist deletion in localStorage
+        markDeleted(id);
         setDoctors(prev => prev.filter(d => d.doctor_id !== id));
         setMeta(prev => ({ ...prev, total: Math.max(0, prev.total - 1) }));
         toast.success("Doctor deleted");
