@@ -80,24 +80,40 @@ function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved
       };
 
       const payload = {
-        doctor_id: String(form.doctor_id), // Backend explicitly asked for string
-        session_date: form.date,           // Backend expects session_date
+        doctor_id: String(form.doctor_id),
+        session_date: form.date,
         start_time: to24h(form.start_time),
         end_time: to24h(form.end_time),
         max_patients: Number(form.max_patients),
-        branch_id: 1,                      // Backend requires branch_id
+        branch_id: 1,
       };
+      
+      console.log("Sending session payload:", payload);
       await api.post("/sessions", payload);
       toast.success("Session created successfully!");
       onSaved(); onClose();
     } catch (err: any) {
-      // Show specific validation errors if provided by backend
+      console.error("Session creation failed details:", err.response?.data);
       const errorData = err?.response?.data;
-      const detail = errorData?.message || errorData?.error || "";
-      const validationErrors = errorData?.errors ? Object.values(errorData.errors).flat().join(", ") : "";
+      const detail = errorData?.message || errorData?.error || "Validation failed";
       
-      toast.error(validationErrors || detail || getErrorMessage(err), { duration: 5000 });
-      console.error("Session creation failed:", errorData);
+      // Extract detailed validation messages
+      let msg = detail;
+      if (errorData?.errors) {
+        if (Array.isArray(errorData.errors)) {
+          msg = errorData.errors.join(", ");
+        } else {
+          msg = Object.entries(errorData.errors)
+            .map(([field, error]) => `${field}: ${Array.isArray(error) ? error.join(", ") : error}`)
+            .join("\n");
+        }
+      }
+      
+      toast.error(msg, { duration: 8000 });
+      // Also show alert so it's impossible to miss in screenshot
+      if (process.env.NODE_ENV === "development") {
+        window.alert("Validation Error:\n" + msg);
+      }
     } finally {
       setLoading(false);
     }
