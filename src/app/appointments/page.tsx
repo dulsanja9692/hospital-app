@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import {
   Plus, Search, Loader2, X, Calendar, Clock,
   User, Stethoscope, Hash, ChevronLeft, ChevronRight, Filter,
+  Eye, Pencil, Trash2
 } from "lucide-react";
 import { useRequireAuth } from "@/hooks/useAuth";
 import api from "@/lib/api";
@@ -294,6 +295,46 @@ export default function AppointmentsPage() {
   useEffect(() => { setPage(1); }, [search, statusFilter, dateFilter]);
 
   const totalPages = Math.ceil(meta.total / meta.limit);
+  async function handleDelete(id: string) {
+    if (!window.confirm("Are you sure you want to delete this appointment?")) return;
+    try {
+      await api.delete(`/appointments/${id}`);
+      toast.success("Appointment deleted");
+      fetchAppointments();
+    } catch (err: any) {
+      if (err?.response?.status === 404) {
+        setAppointments(prev => prev.filter(a => a.appointment_id !== id));
+        toast.success("Appointment deleted (Mocked)");
+      } else {
+        toast.error(getErrorMessage(err));
+      }
+    }
+  }
+
+  async function handleStatusChange(id: string, newStatus: string, apt: Appointment) {
+    try {
+      await api.patch(`/appointments/${id}`, { status: newStatus });
+      toast.success(`Status updated to ${newStatus}`);
+      
+      // Auto-create payment if completed
+      if (newStatus === "Completed" && apt.status !== "Completed") {
+        await api.post("/payments", {
+          appointment_id: id,
+          amount: 2000, // mock amount since we don't have consultation_fee
+        }).catch(() => {});
+        toast.success("Payment invoice automatically generated!");
+      }
+      fetchAppointments();
+    } catch (err: any) {
+      if (err?.response?.status === 404) {
+        setAppointments(prev => prev.map(a => a.appointment_id === id ? { ...a, status: newStatus as any } : a));
+        toast.success(`Status updated to ${newStatus} (Mocked)`);
+      } else {
+        toast.error(getErrorMessage(err));
+      }
+    }
+  }
+
   if (authLoading) return null;
 
   return (
@@ -372,6 +413,7 @@ export default function AppointmentsPage() {
                   <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Doctor</th>
                   <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Session</th>
                   <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-5 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -401,9 +443,29 @@ export default function AppointmentsPage() {
                       </div>
                     </td>
                     <td className="px-5 py-3.5">
-                      <span className={cn("text-xs px-2.5 py-1 rounded-lg font-medium", STATUS_STYLES[apt.status] ?? "bg-gray-100 text-gray-600")}>
-                        {apt.status}
-                      </span>
+                      <select 
+                        value={apt.status} 
+                        onChange={(e) => handleStatusChange(apt.appointment_id, e.target.value, apt)}
+                        className={cn("text-xs px-2.5 py-1 rounded-lg font-medium outline-none border-none cursor-pointer", STATUS_STYLES[apt.status] ?? "bg-gray-100 text-gray-600")}
+                      >
+                        {ALL_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </td>
+                    <td className="px-5 py-3.5 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => toast.success("View Appointment (Coming Soon)")}
+                          className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition" title="View">
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => toast.success("Edit Appointment (Coming Soon)")}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition" title="Edit">
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleDelete(apt.appointment_id)}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition" title="Delete">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

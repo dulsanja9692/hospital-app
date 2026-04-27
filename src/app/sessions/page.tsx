@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import {
   Plus, ChevronLeft, ChevronRight, Loader2, X,
   Clock, Users, Calendar, CheckCircle2, XCircle,
+  Eye, Pencil, Trash2
 } from "lucide-react";
 import { useRequireAuth } from "@/hooks/useAuth";
 import api from "@/lib/api";
@@ -208,18 +209,34 @@ function CalendarView({ sessions, onDayClick }: {
 }
 
 // ─── Session Card ─────────────────────────────────────────
-function SessionCard({ session }: { session: Session }) {
+function SessionCard({ session, onDelete }: { session: Session, onDelete: (id: string) => void }) {
   const pct = Math.round((session.booked_count / session.max_patients) * 100);
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-5">
+    <div className="bg-white rounded-2xl border border-gray-100 p-5 group hover:shadow-md transition-all">
       <div className="flex items-start justify-between mb-3">
         <div>
           <h3 className="font-semibold text-gray-900">{session.doctor.name}</h3>
           <p className="text-sm text-blue-600">{session.doctor.specialization}</p>
         </div>
-        <span className={cn("text-xs px-2.5 py-1 rounded-full font-medium", STATUS_STYLES[session.status] ?? "bg-gray-100 text-gray-600")}>
-          {session.status}
-        </span>
+        <div className="flex flex-col items-end gap-2">
+          <span className={cn("text-xs px-2.5 py-1 rounded-full font-medium", STATUS_STYLES[session.status] ?? "bg-gray-100 text-gray-600")}>
+            {session.status}
+          </span>
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button onClick={() => toast.success("View Session (Coming Soon)")}
+              className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition" title="View">
+              <Eye className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={() => toast.success("Edit Session (Coming Soon)")}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition" title="Edit">
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={() => onDelete(session.session_id)}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition" title="Delete">
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
       </div>
       <div className="space-y-1.5 text-sm text-gray-500 mb-3">
         <div className="flex items-center gap-2">
@@ -269,6 +286,22 @@ export default function SessionsPage() {
       setLoading(false);
     }
   }, []);
+
+  async function handleDelete(id: string) {
+    if (!window.confirm("Are you sure you want to delete this session?")) return;
+    try {
+      await api.delete(`/sessions/${id}`);
+      toast.success("Session deleted");
+      fetchSessions();
+    } catch (err: any) {
+      if (err?.response?.status === 404) {
+        setSessions(prev => prev.filter(s => s.session_id !== id));
+        toast.success("Session deleted (Mocked)");
+      } else {
+        toast.error(getErrorMessage(err));
+      }
+    }
+  }
 
   useEffect(() => { if (user) fetchSessions(); }, [user, fetchSessions]);
   if (authLoading) return null;
@@ -325,7 +358,7 @@ export default function SessionsPage() {
                 <p className="text-sm text-gray-400">No sessions on this day.</p>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {displayedSessions.map((s) => <SessionCard key={s.session_id} session={s} />)}
+                  {displayedSessions.map((s) => <SessionCard key={s.session_id} session={s} onDelete={handleDelete} />)}
                 </div>
               )}
             </div>
@@ -340,7 +373,7 @@ export default function SessionsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {sessions.map((s) => <SessionCard key={s.session_id} session={s} />)}
+            {sessions.map((s) => <SessionCard key={s.session_id} session={s} onDelete={handleDelete} />)}
           </div>
         )
       )}
