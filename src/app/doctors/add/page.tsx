@@ -38,7 +38,7 @@ export default function AddDoctorPage() {
           start_time: "09:00",
           end_time: "17:00",
           max_patients: 20,
-          branch_id: 1
+          branch_id: "1"
         }).catch(() => console.log("Auto-session generation failed"));
       }
 

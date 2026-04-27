@@ -85,7 +85,7 @@ function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved
         start_time: to24h(form.start_time),
         end_time: to24h(form.end_time),
         max_patients: Number(form.max_patients),
-        branch_id: 1,
+        branch_id: "1",
       };
       
       console.log("Sending session payload:", payload);
@@ -110,10 +110,6 @@ function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved
       }
       
       toast.error(msg, { duration: 8000 });
-      // Also show alert so it's impossible to miss in screenshot
-      if (process.env.NODE_ENV === "development") {
-        window.alert("Validation Error:\n" + msg);
-      }
     } finally {
       setLoading(false);
     }
