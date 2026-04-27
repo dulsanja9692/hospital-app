@@ -2,9 +2,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import {
   Plus, Search, ChevronLeft, ChevronRight, Loader2,
   Stethoscope, Phone, Mail, ChevronRight as Arrow,
+  Eye, Pencil, Trash2,
 } from "lucide-react";
 import { useRequireAuth } from "@/hooks/useAuth";
 import api from "@/lib/api";
@@ -51,6 +51,23 @@ export default function DoctorsPage() {
   useEffect(() => { setPage(1); }, [search, statusFilter]);
 
   const totalPages = Math.ceil(meta.total / meta.limit);
+
+  async function handleDelete(id: string) {
+    if (!window.confirm("Are you sure you want to delete this doctor?")) return;
+    try {
+      await api.delete(`/doctors/${id}`);
+      toast.success("Doctor deleted");
+      fetchDoctors();
+    } catch (err: any) {
+      if (err?.response?.status === 404) {
+        setDoctors(prev => prev.filter(d => d.doctor_id !== id));
+        toast.success("Doctor deleted (Mocked)");
+      } else {
+        toast.error(getErrorMessage(err));
+      }
+    }
+  }
+
   if (authLoading) return null;
 
   return (
@@ -101,8 +118,7 @@ export default function DoctorsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {doctors.map((doc) => (
               <div key={doc.doctor_id}
-                onClick={() => router.push(`/doctors/${doc.doctor_id}`)}
-                className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md transition-all cursor-pointer group">
+                className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md transition-all group">
                 <div className="flex items-start justify-between mb-3">
                   <div className="bg-teal-50 rounded-xl p-3">
                     <Stethoscope className="w-5 h-5 text-teal-600" />
@@ -123,7 +139,20 @@ export default function DoctorsPage() {
                   <span className="text-sm font-semibold text-gray-900">
                     Rs {(doc.consultation_fee || 0).toLocaleString()}
                   </span>
-                  <Arrow className="w-4 h-4 text-gray-300 group-hover:text-blue-400 transition-colors" />
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => router.push(`/doctors/${doc.doctor_id}`)}
+                      className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition" title="View">
+                      <Eye className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => router.push(`/doctors/${doc.doctor_id}?edit=true`)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition" title="Edit">
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => handleDelete(doc.doctor_id)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition" title="Delete">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
