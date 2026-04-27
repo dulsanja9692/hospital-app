@@ -281,12 +281,24 @@ export default function AppointmentsPage() {
     try {
       const params: Record<string, unknown> = { page, limit: 20 };
       if (search) params.search = search;
-      if (statusFilter) params.status = statusFilter;
+      if (statusFilter) params.status = statusFilter.toLowerCase();
       if (dateFilter) params.date = dateFilter;
+      
       const res = await api.get("/appointments", { params });
       setAppointments(res.data.data);
       setMeta(res.data.meta ?? { total: res.data.data.length, page: 1, limit: 20 });
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.response?.status === 422 && statusFilter) {
+        // Fallback: Fetch all and filter client-side if status filtering fails
+        try {
+          const res = await api.get("/appointments", { params: { page: 1, limit: 100, date: dateFilter } });
+          const all = res.data.data as Appointment[];
+          const filtered = all.filter(a => a.status === statusFilter);
+          setAppointments(filtered);
+          setMeta({ total: filtered.length, page: 1, limit: 100 });
+          return;
+        } catch {}
+      }
       toast.error(getErrorMessage(err));
     } finally {
       setLoading(false);

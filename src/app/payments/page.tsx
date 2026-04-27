@@ -222,11 +222,23 @@ export default function PaymentsPage() {
     try {
       const params: Record<string, unknown> = { page, limit: 20 };
       if (search) params.search = search;
-      if (statusFilter) params.status = statusFilter;
+      if (statusFilter) params.status = statusFilter.toLowerCase();
+      
       const res = await api.get("/payments", { params });
       setPayments(res.data.data);
       setMeta(res.data.meta ?? { total: res.data.data.length, page: 1, limit: 20 });
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.response?.status === 422 && statusFilter) {
+        // Fallback: If status filtering is not supported by backend, fetch all and filter client-side
+        try {
+          const res = await api.get("/payments", { params: { page: 1, limit: 100 } });
+          const allPayments = res.data.data as Payment[];
+          const filtered = allPayments.filter(p => p.status === statusFilter);
+          setPayments(filtered);
+          setMeta({ total: filtered.length, page: 1, limit: 100 });
+          return;
+        } catch {}
+      }
       toast.error(getErrorMessage(err));
     } finally {
       setLoading(false);
