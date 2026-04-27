@@ -1,0 +1,440 @@
+"use client";
+import { useState, useEffect, useCallback } from "react";
+import toast from "react-hot-toast";
+import {
+  Plus, Search, Loader2, X, Calendar, Clock,
+  User, Stethoscope, Hash, ChevronLeft, ChevronRight, Filter,
+} from "lucide-react";
+import { useRequireAuth } from "@/hooks/useAuth";
+import api from "@/lib/api";
+import { getErrorMessage, cn } from "@/lib/utils";
+import dayjs from "dayjs";
+
+interface Appointment {
+  appointment_id: string;
+  queue_number: number;
+  status: "Booked" | "Confirmed" | "Arrived" | "Completed" | "Cancelled" | "No Show";
+  created_at: string;
+  patient: { patient_id: string; name: string; phone: string };
+  doctor: { doctor_id: string; name: string; specialization: string };
+  session: { session_id: string; date: string; start_time: string; end_time: string };
+}
+
+interface Patient { patient_id: string; name: string; nic: string; phone: string; }
+interface Doctor  { doctor_id: string; name: string; specialization: string; }
+interface Session {
+  session_id: string; date: string; start_time: string;
+  end_time: string; max_patients: number; booked_count: number; status: string;
+  doctor: { name: string };
+}
+
+const STATUS_STYLES: Record<string, string> = {
+  Booked:    "bg-blue-100 text-blue-700",
+  Confirmed: "bg-indigo-100 text-indigo-700",
+  Arrived:   "bg-yellow-100 text-yellow-700",
+  Completed: "bg-green-100 text-green-700",
+  Cancelled: "bg-red-100 text-red-700",
+  "No Show": "bg-gray-100 text-gray-600",
+};
+
+const ALL_STATUSES = ["Booked", "Confirmed", "Arrived", "Completed", "Cancelled", "No Show"];
+
+// ─── Create Appointment Modal ─────────────────────────────
+function CreateAppointmentModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void; }) {
+  const [step, setStep] = useState(1); // 1=patient, 2=doctor, 3=session
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [doctors, setDoctors]   = useState<Doctor[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [patientSearch, setPatientSearch] = useState("");
+  const [doctorSearch,  setDoctorSearch]  = useState("");
+
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [selectedDoctor,  setSelectedDoctor]  = useState<Doctor | null>(null);
+  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Load patients
+  useEffect(() => {
+    api.get("/patients", { params: { search: patientSearch, limit: 10 } })
+      .then((r) => setPatients(r.data.data)).catch(() => {});
+  }, [patientSearch]);
+
+  // Load doctors
+  useEffect(() => {
+    if (step >= 2) {
+      api.get("/doctors", { params: { search: doctorSearch, limit: 10, status: "Active" } })
+        .then((r) => setDoctors(r.data.data)).catch(() => {});
+    }
+  }, [step, doctorSearch]);
+
+  // Load sessions for selected doctor
+  useEffect(() => {
+    if (step === 3 && selectedDoctor) {
+      api.get("/sessions", {
+        params: { doctor_id: selectedDoctor.doctor_id, status: "Open", limit: 20 }
+      }).then((r) => setSessions(r.data.data)).catch(() => {});
+    }
+  }, [step, selectedDoctor]);
+
+  async function handleCreate() {
+    if (!selectedPatient || !selectedDoctor || !selectedSession) return;
+    setLoading(true);
+    try {
+      await api.post("/appointments", {
+        patient_id: selectedPatient.patient_id,
+        doctor_id:  selectedDoctor.doctor_id,
+        session_id: selectedSession.session_id,
+      });
+      toast.success(`Appointment booked! Queue #${selectedSession.booked_count + 1}`);
+      onSaved(); onClose();
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 animate-fade-in" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg animate-slide-in max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-100 flex-shrink-0">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Book Appointment</h2>
+            <div className="flex items-center gap-2 mt-2">
+              {[1, 2, 3].map((s) => (
+                <div key={s} className="flex items-center gap-1">
+                  <div className={cn("w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
+                    step >= s ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-400")}>
+                    {s}
+                  </div>
+                  {s < 3 && <div className={cn("w-8 h-0.5", step > s ? "bg-blue-600" : "bg-gray-100")} />}
+                </div>
+              ))}
+              <span className="text-xs text-gray-500 ml-1">
+                {step === 1 ? "Select Patient" : step === 2 ? "Select Doctor" : "Select Session"}
+              </span>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 transition">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-3">
+          {/* Step 1: Patient */}
+          {step === 1 && (
+            <>
+              <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input type="text" value={patientSearch} onChange={(e) => setPatientSearch(e.target.value)}
+                  placeholder="Search patient by name or NIC…"
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
+              </div>
+              {patients.map((p) => (
+                <button key={p.patient_id} onClick={() => { setSelectedPatient(p); setStep(2); }}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-blue-300 hover:bg-blue-50 transition-all text-left">
+                  <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-sm flex-shrink-0">
+                    {p.name.charAt(0)}
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-gray-900">{p.name}</div>
+                    <div className="text-xs text-gray-400">{p.nic} · {p.phone}</div>
+                  </div>
+                </button>
+              ))}
+              {patients.length === 0 && (
+                <p className="text-sm text-center text-gray-400 py-4">No patients found</p>
+              )}
+            </>
+          )}
+
+          {/* Step 2: Doctor */}
+          {step === 2 && (
+            <>
+              {selectedPatient && (
+                <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-3 py-2 mb-3">
+                  <User className="w-4 h-4 text-green-600" />
+                  <span className="text-sm text-green-700 font-medium">{selectedPatient.name}</span>
+                  <button onClick={() => { setSelectedPatient(null); setStep(1); }} className="ml-auto text-green-500 hover:text-green-700">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+              <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input type="text" value={doctorSearch} onChange={(e) => setDoctorSearch(e.target.value)}
+                  placeholder="Search doctor by name or specialization…"
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
+              </div>
+              {doctors.map((d) => (
+                <button key={d.doctor_id} onClick={() => { setSelectedDoctor(d); setStep(3); }}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-blue-300 hover:bg-blue-50 transition-all text-left">
+                  <div className="w-9 h-9 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-semibold text-sm flex-shrink-0">
+                    <Stethoscope className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-gray-900">{d.name}</div>
+                    <div className="text-xs text-blue-600">{d.specialization}</div>
+                  </div>
+                </button>
+              ))}
+            </>
+          )}
+
+          {/* Step 3: Session */}
+          {step === 3 && (
+            <>
+              {selectedDoctor && (
+                <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-3 py-2 mb-3">
+                  <Stethoscope className="w-4 h-4 text-green-600" />
+                  <span className="text-sm text-green-700 font-medium">{selectedDoctor.name}</span>
+                  <button onClick={() => { setSelectedDoctor(null); setStep(2); }} className="ml-auto text-green-500 hover:text-green-700">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+              {sessions.length === 0 ? (
+                <p className="text-sm text-center text-gray-400 py-4">No open sessions available for this doctor</p>
+              ) : sessions.map((s) => {
+                const isFull = s.booked_count >= s.max_patients;
+                return (
+                  <button key={s.session_id} disabled={isFull}
+                    onClick={() => setSelectedSession(selectedSession?.session_id === s.session_id ? null : s)}
+                    className={cn("w-full flex items-start gap-3 p-3 rounded-xl border transition-all text-left",
+                      selectedSession?.session_id === s.session_id
+                        ? "border-blue-400 bg-blue-50"
+                        : isFull ? "border-gray-100 opacity-50 cursor-not-allowed"
+                        : "border-gray-100 hover:border-blue-300 hover:bg-blue-50")}>
+                    <div className="bg-blue-50 rounded-lg p-2 flex-shrink-0">
+                      <Calendar className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm font-semibold text-gray-900">
+                        {dayjs(s.date).format("ddd, MMM D YYYY")}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        {s.start_time} – {s.end_time} · {s.booked_count}/{s.max_patients} booked
+                      </div>
+                    </div>
+                    {isFull && <span className="text-xs text-orange-600 font-medium">Full</span>}
+                    {selectedSession?.session_id === s.session_id && (
+                      <span className="text-xs text-blue-600 font-medium">Selected</span>
+                    )}
+                  </button>
+                );
+              })}
+            </>
+          )}
+        </div>
+
+        {/* Footer — only show confirm on step 3 */}
+        {step === 3 && selectedSession && (
+          <div className="p-6 border-t border-gray-100 flex-shrink-0">
+            <div className="bg-gray-50 rounded-xl p-3 mb-4 text-sm space-y-1">
+              <div className="flex justify-between text-gray-600">
+                <span>Patient</span><span className="font-medium text-gray-900">{selectedPatient?.name}</span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>Doctor</span><span className="font-medium text-gray-900">{selectedDoctor?.name}</span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>Date</span><span className="font-medium text-gray-900">{dayjs(selectedSession.date).format("MMM D, YYYY")}</span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>Time</span><span className="font-medium text-gray-900">{selectedSession.start_time} – {selectedSession.end_time}</span>
+              </div>
+              <div className="flex justify-between text-gray-600">
+                <span>Queue #</span><span className="font-bold text-blue-600">#{selectedSession.booked_count + 1}</span>
+              </div>
+            </div>
+            <button onClick={handleCreate} disabled={loading}
+              className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60
+                         text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+              {loading ? <><Loader2 className="w-4 h-4 animate-spin" />Booking…</> : <>Confirm Appointment</>}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────
+export default function AppointmentsPage() {
+  const { user, isLoading: authLoading } = useRequireAuth();
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [dateFilter, setDateFilter] = useState(dayjs().format("YYYY-MM-DD"));
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState({ total: 0, page: 1, limit: 20 });
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const fetchAppointments = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params: Record<string, unknown> = { page, limit: 20 };
+      if (search) params.search = search;
+      if (statusFilter) params.status = statusFilter;
+      if (dateFilter) params.date = dateFilter;
+      const res = await api.get("/appointments", { params });
+      setAppointments(res.data.data);
+      setMeta(res.data.meta ?? { total: res.data.data.length, page: 1, limit: 20 });
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [search, statusFilter, dateFilter, page]);
+
+  useEffect(() => { if (user) fetchAppointments(); }, [user, fetchAppointments]);
+  useEffect(() => { setPage(1); }, [search, statusFilter, dateFilter]);
+
+  const totalPages = Math.ceil(meta.total / meta.limit);
+  if (authLoading) return null;
+
+  return (
+    <div className="animate-fade-in">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Appointments</h1>
+          <p className="text-gray-500 text-sm mt-1">
+            {dateFilter ? `${dayjs(dateFilter).format("MMMM D, YYYY")}` : "All appointments"}
+            {meta.total > 0 ? ` · ${meta.total} total` : ""}
+          </p>
+        </div>
+        <button onClick={() => setModalOpen(true)}
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700
+                     text-white rounded-xl text-sm font-semibold transition-colors flex-shrink-0">
+          <Plus className="w-4 h-4" /> Book Appointment
+        </button>
+      </div>
+
+      {/* Status summary pills */}
+      <div className="flex flex-wrap gap-2 mb-5">
+        <button onClick={() => setStatusFilter("")}
+          className={cn("px-3 py-1.5 rounded-xl text-sm font-medium transition-colors",
+            statusFilter === "" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200")}>
+          All
+        </button>
+        {ALL_STATUSES.map((s) => (
+          <button key={s} onClick={() => setStatusFilter(s === statusFilter ? "" : s)}
+            className={cn("px-3 py-1.5 rounded-xl text-sm font-medium transition-colors",
+              statusFilter === s ? STATUS_STYLES[s] + " ring-2 ring-offset-1 ring-current" : "bg-gray-100 text-gray-600 hover:bg-gray-200")}>
+            {s}
+          </button>
+        ))}
+      </div>
+
+      {/* Filters row */}
+      <div className="flex flex-wrap gap-3 mb-5">
+        <div className="relative flex-1 min-w-[180px] max-w-xs">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search patient or doctor…"
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
+        </div>
+        <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}
+          className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-white text-gray-600
+                     focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
+        {dateFilter && (
+          <button onClick={() => setDateFilter("")}
+            className="px-3 py-2.5 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition">
+            Clear date
+          </button>
+        )}
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center h-56">
+            <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+          </div>
+        ) : appointments.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-56 text-gray-400">
+            <Calendar className="w-10 h-10 mb-3 opacity-30" />
+            <p className="text-sm font-medium">No appointments found</p>
+            <button onClick={() => { setSearch(""); setStatusFilter(""); }}
+              className="text-xs text-blue-500 hover:underline mt-1">Clear filters</button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50/50">
+                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Queue</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Patient</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Doctor</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Session</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {appointments.map((apt) => (
+                  <tr key={apt.appointment_id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-5 py-3.5">
+                      <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center text-blue-700 font-bold text-sm">
+                        #{apt.queue_number}
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <div className="text-sm font-semibold text-gray-900">{apt.patient.name}</div>
+                      <div className="text-xs text-gray-400">{apt.patient.phone}</div>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <div className="text-sm font-semibold text-gray-900">{apt.doctor.name}</div>
+                      <div className="text-xs text-blue-600">{apt.doctor.specialization}</div>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                        <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                        {dayjs(apt.session.date).format("MMM D, YYYY")}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs text-gray-400 mt-0.5">
+                        <Clock className="w-3.5 h-3.5" />
+                        {apt.session.start_time}
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className={cn("text-xs px-2.5 py-1 rounded-lg font-medium", STATUS_STYLES[apt.status] ?? "bg-gray-100 text-gray-600")}>
+                        {apt.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-5 py-3.5 border-t border-gray-100">
+            <p className="text-sm text-gray-500">
+              {(page - 1) * meta.limit + 1}–{Math.min(page * meta.limit, meta.total)} of {meta.total}
+            </p>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
+                className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-sm font-medium text-gray-700 px-2">{page} / {totalPages}</span>
+              <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 transition">
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {modalOpen && (
+        <CreateAppointmentModal onClose={() => setModalOpen(false)} onSaved={fetchAppointments} />
+      )}
+    </div>
+  );
+}

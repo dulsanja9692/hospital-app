@@ -1,0 +1,353 @@
+"use client";
+import { useState, useEffect, useCallback } from "react";
+import toast from "react-hot-toast";
+import {
+  Plus, ChevronLeft, ChevronRight, Loader2, X,
+  Clock, Users, Calendar, CheckCircle2, XCircle,
+} from "lucide-react";
+import { useRequireAuth } from "@/hooks/useAuth";
+import api from "@/lib/api";
+import { getErrorMessage, cn } from "@/lib/utils";
+import dayjs from "dayjs";
+
+interface Session {
+  session_id: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  max_patients: number;
+  booked_count: number;
+  status: "Open" | "Full" | "Closed" | "Completed";
+  doctor: { doctor_id: string; name: string; specialization: string };
+}
+
+interface Doctor { doctor_id: string; name: string; specialization: string; }
+
+const STATUS_STYLES: Record<string, string> = {
+  Open:      "bg-green-100 text-green-700",
+  Full:      "bg-orange-100 text-orange-700",
+  Closed:    "bg-gray-100 text-gray-600",
+  Completed: "bg-blue-100 text-blue-700",
+};
+
+// ─── Create Session Modal ────────────────────────────────
+function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void; }) {
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [form, setForm] = useState({
+    doctor_id: "", date: dayjs().format("YYYY-MM-DD"),
+    start_time: "", end_time: "", max_patients: "20",
+  });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    api.get("/doctors", { params: { limit: 100, status: "Active" } })
+      .then((r) => setDoctors(r.data.data))
+      .catch(() => {});
+  }, []);
+
+  function set(field: string, value: string) { setForm((f) => ({ ...f, [field]: value })); }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await api.post("/sessions", { ...form, max_patients: Number(form.max_patients) });
+      toast.success("Session created successfully!");
+      onSaved(); onClose();
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 animate-fade-in" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md animate-slide-in">
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Create Session</h2>
+            <p className="text-sm text-gray-500 mt-0.5">Schedule a new doctor channeling session</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 transition">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Doctor <span className="text-red-500">*</span></label>
+            <select required value={form.doctor_id} onChange={(e) => set("doctor_id", e.target.value)}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all">
+              <option value="">Select doctor</option>
+              {doctors.map((d) => <option key={d.doctor_id} value={d.doctor_id}>{d.name} — {d.specialization}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Date <span className="text-red-500">*</span></label>
+            <input type="date" required value={form.date} onChange={(e) => set("date", e.target.value)}
+              min={dayjs().format("YYYY-MM-DD")}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Start Time <span className="text-red-500">*</span></label>
+              <input type="time" required value={form.start_time} onChange={(e) => set("start_time", e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">End Time <span className="text-red-500">*</span></label>
+              <input type="time" required value={form.end_time} onChange={(e) => set("end_time", e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Max Patients <span className="text-red-500">*</span></label>
+            <input type="number" required min={1} max={100} value={form.max_patients} onChange={(e) => set("max_patients", e.target.value)}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose}
+              className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+              Cancel
+            </button>
+            <button type="submit" disabled={loading}
+              className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60
+                         text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+              {loading ? <><Loader2 className="w-4 h-4 animate-spin" />Creating…</> : <>Create Session</>}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Calendar View ───────────────────────────────────────
+function CalendarView({ sessions, onDayClick }: {
+  sessions: Session[];
+  onDayClick: (date: string) => void;
+}) {
+  const [currentMonth, setCurrentMonth] = useState(dayjs().startOf("month"));
+
+  const daysInMonth = currentMonth.daysInMonth();
+  const startDay = currentMonth.day(); // 0 = Sunday
+  const today = dayjs().format("YYYY-MM-DD");
+
+  const sessionsByDate = sessions.reduce<Record<string, Session[]>>((acc, s) => {
+    const d = s.date.substring(0, 10);
+    if (!acc[d]) acc[d] = [];
+    acc[d].push(s);
+    return acc;
+  }, {});
+
+  const days = Array.from({ length: daysInMonth }, (_, i) => {
+    const date = currentMonth.date(i + 1).format("YYYY-MM-DD");
+    return { date, daySessions: sessionsByDate[date] ?? [] };
+  });
+
+  const blanks = Array.from({ length: startDay });
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+      {/* Month navigation */}
+      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <button onClick={() => setCurrentMonth((m) => m.subtract(1, "month"))}
+          className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 transition">
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <h3 className="font-semibold text-gray-900">{currentMonth.format("MMMM YYYY")}</h3>
+        <button onClick={() => setCurrentMonth((m) => m.add(1, "month"))}
+          className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 transition">
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Day headers */}
+      <div className="grid grid-cols-7 border-b border-gray-100">
+        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+          <div key={d} className="py-2 text-center text-xs font-semibold text-gray-400">{d}</div>
+        ))}
+      </div>
+
+      {/* Calendar grid */}
+      <div className="grid grid-cols-7">
+        {blanks.map((_, i) => <div key={`blank-${i}`} className="border-r border-b border-gray-50 h-20" />)}
+        {days.map(({ date, daySessions }) => {
+          const isToday = date === today;
+          const hasSessions = daySessions.length > 0;
+          return (
+            <div key={date}
+              onClick={() => hasSessions && onDayClick(date)}
+              className={cn(
+                "border-r border-b border-gray-50 h-20 p-1.5 transition-colors",
+                hasSessions ? "cursor-pointer hover:bg-blue-50/50" : "",
+                isToday ? "bg-blue-50" : ""
+              )}>
+              <div className={cn("w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold mb-1",
+                isToday ? "bg-blue-600 text-white" : "text-gray-600")}>
+                {dayjs(date).date()}
+              </div>
+              <div className="space-y-0.5">
+                {daySessions.slice(0, 2).map((s) => (
+                  <div key={s.session_id}
+                    className={cn("text-xs px-1 py-0.5 rounded truncate font-medium", STATUS_STYLES[s.status] ?? "bg-gray-100 text-gray-600")}>
+                    {s.doctor.name.split(" ")[1] ?? s.doctor.name}
+                  </div>
+                ))}
+                {daySessions.length > 2 && (
+                  <div className="text-xs text-gray-400 px-1">+{daySessions.length - 2} more</div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Session Card ─────────────────────────────────────────
+function SessionCard({ session }: { session: Session }) {
+  const pct = Math.round((session.booked_count / session.max_patients) * 100);
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 p-5">
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <h3 className="font-semibold text-gray-900">{session.doctor.name}</h3>
+          <p className="text-sm text-blue-600">{session.doctor.specialization}</p>
+        </div>
+        <span className={cn("text-xs px-2.5 py-1 rounded-full font-medium", STATUS_STYLES[session.status] ?? "bg-gray-100 text-gray-600")}>
+          {session.status}
+        </span>
+      </div>
+      <div className="space-y-1.5 text-sm text-gray-500 mb-3">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-3.5 h-3.5 text-gray-400" />
+          {dayjs(session.date).format("ddd, MMM D YYYY")}
+        </div>
+        <div className="flex items-center gap-2">
+          <Clock className="w-3.5 h-3.5 text-gray-400" />
+          {session.start_time} – {session.end_time}
+        </div>
+        <div className="flex items-center gap-2">
+          <Users className="w-3.5 h-3.5 text-gray-400" />
+          {session.booked_count} / {session.max_patients} patients
+        </div>
+      </div>
+      {/* Capacity bar */}
+      <div className="mt-3">
+        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div
+            className={cn("h-full rounded-full transition-all", pct >= 90 ? "bg-red-400" : pct >= 70 ? "bg-orange-400" : "bg-green-400")}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <p className="text-xs text-gray-400 mt-1">{pct}% full</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────
+export default function SessionsPage() {
+  const { user, isLoading: authLoading } = useRequireAuth();
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<"calendar" | "list">("calendar");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  const fetchSessions = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get("/sessions", { params: { limit: 100 } });
+      setSessions(res.data.data);
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { if (user) fetchSessions(); }, [user, fetchSessions]);
+  if (authLoading) return null;
+
+  const displayedSessions = selectedDate
+    ? sessions.filter((s) => s.date.startsWith(selectedDate))
+    : sessions;
+
+  return (
+    <div className="animate-fade-in">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Sessions</h1>
+          <p className="text-gray-500 text-sm mt-1">Manage doctor channeling sessions</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* View toggle */}
+          <div className="flex bg-gray-100 rounded-xl p-1">
+            {(["calendar", "list"] as const).map((v) => (
+              <button key={v} onClick={() => setView(v)}
+                className={cn("px-3 py-1.5 rounded-lg text-sm font-medium transition-all capitalize",
+                  view === v ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700")}>
+                {v}
+              </button>
+            ))}
+          </div>
+          <button onClick={() => setModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700
+                       text-white rounded-xl text-sm font-semibold transition-colors">
+            <Plus className="w-4 h-4" /> New Session
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+        </div>
+      ) : view === "calendar" ? (
+        <div className="space-y-5">
+          <CalendarView sessions={sessions} onDayClick={(d) => setSelectedDate(selectedDate === d ? null : d)} />
+          {selectedDate && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-gray-900">
+                  Sessions on {dayjs(selectedDate).format("MMMM D, YYYY")}
+                </h3>
+                <button onClick={() => setSelectedDate(null)} className="text-xs text-gray-400 hover:text-gray-600">
+                  Clear
+                </button>
+              </div>
+              {displayedSessions.length === 0 ? (
+                <p className="text-sm text-gray-400">No sessions on this day.</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {displayedSessions.map((s) => <SessionCard key={s.session_id} session={s} />)}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        // List view
+        sessions.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-56 bg-white rounded-2xl border border-gray-100 text-gray-400">
+            <Calendar className="w-10 h-10 mb-3 opacity-30" />
+            <p className="text-sm font-medium">No sessions found</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {sessions.map((s) => <SessionCard key={s.session_id} session={s} />)}
+          </div>
+        )
+      )}
+
+      {modalOpen && (
+        <CreateSessionModal onClose={() => setModalOpen(false)} onSaved={fetchSessions} />
+      )}
+    </div>
+  );
+}
