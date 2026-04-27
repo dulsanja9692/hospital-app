@@ -66,11 +66,32 @@ function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved
     e.preventDefault();
     setLoading(true);
     try {
-      await api.post("/sessions", { ...form, max_patients: Number(form.max_patients) });
+      // Normalize times to strict HH:mm 24-hour format expected by backend
+      const to24h = (t: string) => {
+        if (!t) return t;
+        // Already HH:mm
+        if (/^\d{2}:\d{2}$/.test(t)) return t;
+        // Convert 12h format
+        const [time, period] = t.split(" ");
+        let [h, m] = time.split(":").map(Number);
+        if (period?.toUpperCase() === "PM" && h !== 12) h += 12;
+        if (period?.toUpperCase() === "AM" && h === 12) h = 0;
+        return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      };
+
+      const payload = {
+        doctor_id: form.doctor_id,
+        date: form.date,
+        start_time: to24h(form.start_time),
+        end_time: to24h(form.end_time),
+        max_patients: Number(form.max_patients),
+      };
+      await api.post("/sessions", payload);
       toast.success("Session created successfully!");
       onSaved(); onClose();
-    } catch (err) {
-      toast.error(getErrorMessage(err));
+    } catch (err: any) {
+      const detail = err?.response?.data?.message || err?.response?.data?.error || "";
+      toast.error(detail || getErrorMessage(err));
     } finally {
       setLoading(false);
     }
