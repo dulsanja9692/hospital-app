@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
   Plus, ChevronLeft, ChevronRight, Loader2, X,
@@ -18,8 +19,8 @@ interface Session {
   end_time: string;
   max_patients: number;
   booked_count: number;
-  status: "Open" | "Full" | "Closed" | "Completed";
-  doctor: { doctor_id: string; name: string; specialization: string };
+  status: string;
+  doctor: { doctor_id: string; name: string; specialization: string; };
 }
 
 interface Doctor { doctor_id: string; name: string; specialization: string; }
@@ -210,12 +211,18 @@ function CalendarView({ sessions, onDayClick }: {
 
 // ─── Session Card ─────────────────────────────────────────
 function SessionCard({ session, onDelete }: { session: Session, onDelete: (id: string) => void }) {
+  const router = useRouter();
   const pct = Math.round((session.booked_count / session.max_patients) * 100);
+  const doctorId = session.doctor?.doctor_id;
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-5 group hover:shadow-md transition-all">
       <div className="flex items-start justify-between mb-3">
         <div>
-          <h3 className="font-semibold text-gray-900">{session.doctor.name}</h3>
+          <button
+            onClick={() => doctorId && router.push(`/doctors/${doctorId}`)}
+            className={cn("font-semibold text-gray-900 text-left", doctorId && "hover:text-blue-600 hover:underline transition-colors cursor-pointer")}>
+            {session.doctor.name}
+          </button>
           <p className="text-sm text-blue-600">{session.doctor.specialization}</p>
         </div>
         <div className="flex flex-col items-end gap-2">
@@ -223,8 +230,8 @@ function SessionCard({ session, onDelete }: { session: Session, onDelete: (id: s
             {session.status}
           </span>
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button onClick={() => toast.success("View Session (Coming Soon)")}
-              className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition" title="View">
+            <button onClick={() => doctorId ? router.push(`/doctors/${doctorId}`) : toast.success("Doctor profile (Coming Soon)")}
+              className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition" title="View Doctor Profile">
               <Eye className="w-3.5 h-3.5" />
             </button>
             <button onClick={() => toast.success("Edit Session (Coming Soon)")}

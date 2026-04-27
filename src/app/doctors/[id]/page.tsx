@@ -4,11 +4,12 @@ import { useRouter, useParams, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import {
   ArrowLeft, Loader2, Phone, Mail, Stethoscope, CreditCard,
-  User, Pencil, X, Check, CheckCircle2, XCircle
+  Pencil, X, Check, CheckCircle2, XCircle, Calendar, Clock, Users
 } from "lucide-react";
 import { useRequireAuth } from "@/hooks/useAuth";
 import api from "@/lib/api";
 import { getErrorMessage, cn } from "@/lib/utils";
+import dayjs from "dayjs";
 
 interface Doctor {
   doctor_id: string;
@@ -20,24 +21,37 @@ interface Doctor {
   status: "Active" | "Inactive";
 }
 
-// ── localStorage helpers for caching fees (backend workaround) ──
-const FEE_CACHE_KEY = "doctor_fees_cache";
-
-function getCachedFees(): Record<string, number> {
-  try {
-    return JSON.parse(localStorage.getItem(FEE_CACHE_KEY) || "{}");
-  } catch { return {}; }
+interface Session {
+  session_id: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  max_patients: number;
+  booked_count: number;
+  status: string;
 }
 
+// ── localStorage helpers ────────────────────────────────────
+const FEE_CACHE_KEY = "doctor_fees_cache";
+function getCachedFees(): Record<string, number> {
+  try { return JSON.parse(localStorage.getItem(FEE_CACHE_KEY) || "{}"); }
+  catch { return {}; }
+}
 function cacheFee(doctorId: string, fee: number) {
   const cache = getCachedFees();
   cache[doctorId] = fee;
   localStorage.setItem(FEE_CACHE_KEY, JSON.stringify(cache));
 }
-
 export function getCachedFee(doctorId: string): number {
   return getCachedFees()[doctorId] ?? 0;
 }
+
+const SESSION_STATUS: Record<string, string> = {
+  Open:      "bg-green-100 text-green-700",
+  Full:      "bg-orange-100 text-orange-700",
+  Closed:    "bg-gray-100 text-gray-600",
+  Completed: "bg-blue-100 text-blue-700",
+};
 
 function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value?: string }) {
   if (!value) return null;
@@ -58,21 +72,24 @@ export default function DoctorDetailPage() {
   const searchParams = useSearchParams();
   const doctorId = params.id as string;
   const isEditingInitial = searchParams?.get("edit") === "true";
-  
+
   const { isLoading: authLoading } = useRequireAuth();
 
+  const [activeTab, setActiveTab] = useState<"profile" | "sessions">("profile");
   const [doctor, setDoctor] = useState<Doctor | null>(null);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(isEditingInitial);
   const [editForm, setEditForm] = useState<Partial<Doctor>>({});
   const [saving, setSaving] = useState(false);
 
+  // Load doctor profile
   useEffect(() => {
     async function load() {
       try {
         const res = await api.get(`/doctors/${doctorId}`);
         const d = res.data.data;
-        // Merge cached fee (since backend doesn't save it)
         const cachedFee = getCachedFee(doctorId);
         const merged = { ...d, consultation_fee: cachedFee || d.consultation_fee };
         setDoctor(merged);
@@ -87,21 +104,24 @@ export default function DoctorDetailPage() {
     if (!authLoading) load();
   }, [doctorId, authLoading, router]);
 
+  // Load sessions when Sessions tab is clicked
+  useEffect(() => {
+    if (activeTab !== "sessions") return;
+    setSessionsLoading(true);
+    api.get("/sessions", { params: { doctor_id: doctorId, limit: 50 } })
+      .then(r => setSessions(r.data.data))
+      .catch(() => setSessions([]))
+      .finally(() => setSessionsLoading(false));
+  }, [activeTab, doctorId]);
+
   async function handleSave() {
     setSaving(true);
     try {
-      const payload = {
-        ...editForm,
-        consultation_fee: Number(editForm.consultation_fee)
-      };
+      const payload = { ...editForm, consultation_fee: Number(editForm.consultation_fee) };
       const res = await api.put(`/doctors/${doctorId}`, payload);
-      
-      // Cache the fee in localStorage since backend doesn't save it
       cacheFee(doctorId, payload.consultation_fee);
-
       const returnedDoctor = res.data.data;
       setDoctor({ ...returnedDoctor, consultation_fee: payload.consultation_fee });
-      
       setEditing(false);
       toast.success("Doctor profile updated successfully");
     } catch (err) {
@@ -144,8 +164,7 @@ export default function DoctorDetailPage() {
               <X className="w-4 h-4" />
             </button>
             <button onClick={handleSave} disabled={saving}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60
-                         text-white rounded-xl text-sm font-semibold transition">
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-xl text-sm font-semibold transition">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
               Save
             </button>
@@ -153,79 +172,134 @@ export default function DoctorDetailPage() {
         )}
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-100 p-6 md:p-8">
-        <div className="flex flex-col md:flex-row gap-8">
-          {/* Avatar Area */}
-          <div className="flex flex-col items-center flex-shrink-0">
-            <div className="w-24 h-24 rounded-2xl bg-teal-50 flex items-center justify-center text-teal-600 mb-4">
-              <Stethoscope className="w-10 h-10" />
+      {/* Tabs */}
+      <div className="flex gap-1 mb-5 bg-gray-100 p-1 rounded-xl w-fit">
+        {(["profile", "sessions"] as const).map((tab) => (
+          <button key={tab} onClick={() => setActiveTab(tab)}
+            className={cn("px-4 py-2 rounded-lg text-sm font-medium capitalize transition-all",
+              activeTab === tab ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700")}>
+            {tab === "sessions" ? `Sessions` : "Profile"}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Profile Tab ── */}
+      {activeTab === "profile" && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-6 md:p-8">
+          <div className="flex flex-col md:flex-row gap-8">
+            {/* Avatar */}
+            <div className="flex flex-col items-center flex-shrink-0">
+              <div className="w-24 h-24 rounded-2xl bg-teal-50 flex items-center justify-center text-teal-600 mb-4">
+                <Stethoscope className="w-10 h-10" />
+              </div>
+              {!editing && (
+                <span className={cn("text-xs px-3 py-1 rounded-full font-medium flex items-center gap-1.5",
+                  doctor.status === "Active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500")}>
+                  {doctor.status === "Active" ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                  {doctor.status}
+                </span>
+              )}
             </div>
-            {!editing && (
-              <span className={cn("text-xs px-3 py-1 rounded-full font-medium flex items-center gap-1.5",
-                doctor.status === "Active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500")}>
-                {doctor.status === "Active" ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
-                {doctor.status}
-              </span>
-            )}
-          </div>
 
-          {/* Details Area */}
-          <div className="flex-1">
-            {editing ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2">
-                  <label className="text-xs text-gray-500 mb-1 block">Full Name</label>
-                  <input type="text" value={editForm.name ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
+            {/* Details */}
+            <div className="flex-1">
+              {editing ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="text-xs text-gray-500 mb-1 block">Full Name</label>
+                    <input type="text" value={editForm.name ?? ""} onChange={(e) => setEditForm(f => ({ ...f, name: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">Specialization</label>
+                    <input type="text" value={editForm.specialization ?? ""} onChange={(e) => setEditForm(f => ({ ...f, specialization: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">Status</label>
+                    <select value={editForm.status ?? "Active"} onChange={(e) => setEditForm(f => ({ ...f, status: e.target.value as "Active" | "Inactive" }))}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100">
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">Phone</label>
+                    <input type="tel" value={editForm.phone ?? ""} onChange={(e) => setEditForm(f => ({ ...f, phone: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">Email</label>
+                    <input type="email" value={editForm.email ?? ""} onChange={(e) => setEditForm(f => ({ ...f, email: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">Consultation Fee (Rs)</label>
+                    <input type="number" min={0} value={editForm.consultation_fee ?? 0}
+                      onChange={(e) => setEditForm(f => ({ ...f, consultation_fee: Number(e.target.value) }))}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
+                  </div>
                 </div>
+              ) : (
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 block">Specialization</label>
-                  <input type="text" value={editForm.specialization ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, specialization: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
+                  <h2 className="text-xl font-bold text-gray-900 mb-1">{doctor.name}</h2>
+                  <p className="text-blue-600 font-medium mb-6">{doctor.specialization}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1">
+                    <InfoRow icon={<Phone className="w-4 h-4" />} label="Phone" value={doctor.phone} />
+                    <InfoRow icon={<Mail className="w-4 h-4" />} label="Email" value={doctor.email || "—"} />
+                    <InfoRow icon={<CreditCard className="w-4 h-4" />} label="Consultation Fee"
+                      value={doctor.consultation_fee > 0 ? `Rs ${doctor.consultation_fee.toLocaleString()}` : "Not set"} />
+                  </div>
                 </div>
-                <div>
-                  <label className="text-xs text-gray-500 mb-1 block">Status</label>
-                  <select value={editForm.status ?? "Active"} onChange={(e) => setEditForm((f) => ({ ...f, status: e.target.value as "Active" | "Inactive" }))}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100">
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 mb-1 block">Phone</label>
-                  <input type="tel" value={editForm.phone ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 mb-1 block">Email</label>
-                  <input type="email" value={editForm.email ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 mb-1 block">Consultation Fee (Rs)</label>
-                  <input type="number" min={0} value={editForm.consultation_fee ?? 0} onChange={(e) => setEditForm((f) => ({ ...f, consultation_fee: Number(e.target.value) }))}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
-                </div>
-              </div>
-            ) : (
-              <div>
-                <h2 className="text-xl font-bold text-gray-900 mb-1">{doctor.name}</h2>
-                <p className="text-blue-600 font-medium mb-6">{doctor.specialization}</p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1">
-                  <InfoRow icon={<Phone className="w-4 h-4" />} label="Phone" value={doctor.phone} />
-                  <InfoRow icon={<Mail className="w-4 h-4" />} label="Email" value={doctor.email || "—"} />
-                  <InfoRow
-                    icon={<CreditCard className="w-4 h-4" />}
-                    label="Consultation Fee"
-                    value={doctor.consultation_fee > 0 ? `Rs ${doctor.consultation_fee.toLocaleString()}` : "Not set"}
-                  />
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* ── Sessions Tab ── */}
+      {activeTab === "sessions" && (
+        <div>
+          {sessionsLoading ? (
+            <div className="flex items-center justify-center h-48">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+            </div>
+          ) : sessions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-48 bg-white rounded-2xl border border-gray-100 text-gray-400">
+              <Calendar className="w-10 h-10 mb-3 opacity-30" />
+              <p className="text-sm font-medium">No sessions found for this doctor</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {sessions.map(s => {
+                const pct = Math.round((s.booked_count / s.max_patients) * 100);
+                return (
+                  <div key={s.session_id} className="bg-white rounded-2xl border border-gray-100 p-5">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <p className="font-semibold text-gray-900">{dayjs(s.date).format("ddd, MMM D YYYY")}</p>
+                        <p className="text-sm text-gray-500 mt-0.5">{s.start_time} – {s.end_time}</p>
+                      </div>
+                      <span className={cn("text-xs px-2.5 py-1 rounded-full font-medium", SESSION_STATUS[s.status] ?? "bg-gray-100 text-gray-600")}>
+                        {s.status}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-3">
+                      <Users className="w-3.5 h-3.5 text-gray-400" />
+                      {s.booked_count} / {s.max_patients} patients booked
+                    </div>
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className={cn("h-full rounded-full", pct >= 90 ? "bg-red-400" : pct >= 70 ? "bg-orange-400" : "bg-green-400")}
+                        style={{ width: `${pct}%` }} />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">{pct}% full</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
