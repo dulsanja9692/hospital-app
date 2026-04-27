@@ -21,10 +21,14 @@ export const setAccessToken = (token: string | null) => {
 };
 export const getAccessToken = () => accessToken;
 
-// ── Attach token to every request ─────────────────────────
+// ── Attach token & enforce trailing slashes ────────────────
 api.interceptors.request.use((config) => {
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;
+  }
+  // Ensure every endpoint ends with a slash (some backends are picky)
+  if (config.url && !config.url.endsWith("/") && !config.url.includes("?")) {
+    config.url = `${config.url}/`;
   }
   return config;
 });

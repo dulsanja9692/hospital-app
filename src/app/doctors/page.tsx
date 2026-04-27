@@ -56,7 +56,7 @@ export default function DoctorsPage() {
       const params: Record<string, unknown> = { page, limit: 20 };
       if (search) params.search = search;
       if (statusFilter) params.status = statusFilter;
-      const res = await api.get("doctors", { params });
+      const res = await api.get("doctors/", { params });
       // Filter out locally-deleted doctors & merge cached fees
       const deletedIds = getDeletedIds();
       const feeCache = getCachedFees();

@@ -284,7 +284,7 @@ export default function AppointmentsPage() {
       if (statusFilter) params.status = statusFilter.toLowerCase();
       if (dateFilter) params.date = dateFilter;
       
-      const res = await api.get("appointments", { params });
+      const res = await api.get("appointments/", { params });
       setAppointments(res.data.data);
       setMeta(res.data.meta ?? { total: res.data.data.length, page: 1, limit: 20 });
     } catch (err: any) {

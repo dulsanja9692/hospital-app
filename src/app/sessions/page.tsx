@@ -88,7 +88,7 @@ function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved
         .then((r) => setBranches(r.data.data))
         .catch(() => {
           // Fallback if the endpoint is nested
-          api.get(`hospital/${form.hospital_id}/branch`)
+          api.get(`hospitals/${form.hospital_id}/branches/`)
             .then((r) => setBranches(r.data.data))
             .catch(() => {
               // If all else fails, set a default branch 1 so at least something can be tried
@@ -406,7 +406,7 @@ export default function SessionsPage() {
   const fetchSessions = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get("sessions", { params: { limit: 100 } });
+      const res = await api.get("sessions/", { params: { limit: 100 } });
       setSessions(res.data.data);
     } catch (err) {
       toast.error(getErrorMessage(err));

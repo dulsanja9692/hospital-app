@@ -51,7 +51,7 @@ function UserModal({ currentUser, editUser, hospitals, onClose, onSaved }: {
       api.get("branches", { params: { hospital_id: form.hospital_id, limit: 100 } })
         .then(r => setBranches(r.data.data))
         .catch(() => {
-          api.get(`hospital/${form.hospital_id}/branch`)
+          api.get(`hospitals/${form.hospital_id}/branches/`)
             .then(r => setBranches(r.data.data))
             .catch(() => setBranches([]));
         });
@@ -70,10 +70,10 @@ function UserModal({ currentUser, editUser, hospitals, onClose, onSaved }: {
       if (form.hospital_id) payload.hospital_id = form.hospital_id;
       if (form.branch_id) payload.branch_id = form.branch_id;
       if (isEdit) {
-        await api.put(`user/${editUser!.user_id}`, payload);
+        await api.put(`users/${editUser!.user_id}/`, payload);
         toast.success("User updated successfully");
       } else {
-        await api.post("user", payload);
+        await api.post("users/", payload);
         toast.success("User created successfully");
       }
       onSaved(); onClose();
@@ -215,12 +215,12 @@ export default function UsersPage() {
   const canCreateUsers = currentUser ? CREATABLE_ROLES[currentUser.role].length > 0 : false;
 
   const fetchHospitals = useCallback(() => {
-    if (currentUser?.role === "Super Admin") {
-      api.get("hospital", { params: { limit: 100 } })
+    if (currentUser.role === "Super Admin") {
+      api.get("hospitals/", { params: { limit: 100 } })
         .then(r => setHospitals(r.data.data))
         .catch(() => setHospitals([]));
     }
-  }, [currentUser?.role]);
+  }, [currentUser.role]);
 
   useEffect(() => { fetchHospitals(); }, [fetchHospitals]);
 
@@ -228,7 +228,7 @@ export default function UsersPage() {
     if (!currentUser) return;
     setLoading(true);
     try {
-      const res = await api.get("user", { params: { search, role: roleFilter, hospital_id: hospitalFilter, page } });
+      const res = await api.get("users/", { params: { search, role: roleFilter, hospital_id: hospitalFilter, page } });
       setUsers(res.data.data);
       setMeta(res.data.meta ?? { total: res.data.data.length, page: 1, limit: 10 });
     } catch (err: unknown) {
