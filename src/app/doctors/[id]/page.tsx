@@ -31,6 +31,14 @@ interface Session {
   status: string;
 }
 
+interface Appointment {
+  appointment_id: string;
+  queue_number: number;
+  status: string;
+  patient: { patient_id: string; name: string; phone: string };
+  session: { date: string; start_time: string };
+}
+
 // ── localStorage helpers ────────────────────────────────────
 const FEE_CACHE_KEY = "doctor_fees_cache";
 function getCachedFees(): Record<string, number> {
@@ -75,10 +83,12 @@ export default function DoctorDetailPage() {
 
   const { isLoading: authLoading } = useRequireAuth();
 
-  const [activeTab, setActiveTab] = useState<"profile" | "sessions">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "sessions" | "appointments">("profile");
   const [doctor, setDoctor] = useState<Doctor | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [appointmentsLoading, setAppointmentsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(isEditingInitial);
   const [editForm, setEditForm] = useState<Partial<Doctor>>({});
@@ -112,6 +122,16 @@ export default function DoctorDetailPage() {
       .then(r => setSessions(r.data.data))
       .catch(() => setSessions([]))
       .finally(() => setSessionsLoading(false));
+  }, [activeTab, doctorId]);
+
+  // Load appointments when Appointments tab is clicked
+  useEffect(() => {
+    if (activeTab !== "appointments") return;
+    setAppointmentsLoading(true);
+    api.get("/appointments", { params: { doctor_id: doctorId, limit: 50 } })
+      .then(r => setAppointments(r.data.data))
+      .catch(() => setAppointments([]))
+      .finally(() => setAppointmentsLoading(false));
   }, [activeTab, doctorId]);
 
   async function handleSave() {
@@ -174,11 +194,11 @@ export default function DoctorDetailPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-5 bg-gray-100 p-1 rounded-xl w-fit">
-        {(["profile", "sessions"] as const).map((tab) => (
+        {(["profile", "sessions", "appointments"] as const).map((tab) => (
           <button key={tab} onClick={() => setActiveTab(tab)}
             className={cn("px-4 py-2 rounded-lg text-sm font-medium capitalize transition-all",
               activeTab === tab ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700")}>
-            {tab === "sessions" ? `Sessions` : "Profile"}
+            {tab === "appointments" ? "Appointments" : tab === "sessions" ? "Sessions" : "Profile"}
           </button>
         ))}
       </div>
@@ -296,6 +316,75 @@ export default function DoctorDetailPage() {
                   </div>
                 );
               })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Appointments Tab ── */}
+      {activeTab === "appointments" && (
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          {appointmentsLoading ? (
+            <div className="flex items-center justify-center h-48">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+            </div>
+          ) : appointments.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-48 text-gray-400">
+              <Calendar className="w-10 h-10 mb-3 opacity-30" />
+              <p className="text-sm font-medium">No appointments found for this doctor</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50/50">
+                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Queue</th>
+                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Patient</th>
+                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Session Date</th>
+                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {appointments.map(apt => (
+                    <tr key={apt.appointment_id} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="px-5 py-3.5">
+                        <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center text-blue-700 font-bold text-sm">
+                          #{apt.queue_number}
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <button onClick={() => router.push(`/patients/${apt.patient.patient_id}`)}
+                          className="text-sm font-semibold text-gray-900 hover:text-blue-600 hover:underline text-left transition-colors">
+                          {apt.patient.name}
+                        </button>
+                        <div className="text-xs text-gray-400">{apt.patient.phone}</div>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                          <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                          {dayjs(apt.session.date).format("MMM D, YYYY")}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs text-gray-400 mt-0.5">
+                          <Clock className="w-3.5 h-3.5" />
+                          {apt.session.start_time}
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <span className={cn("text-xs px-2.5 py-1 rounded-lg font-medium", {
+                          "bg-blue-100 text-blue-700": apt.status === "Booked",
+                          "bg-indigo-100 text-indigo-700": apt.status === "Confirmed",
+                          "bg-yellow-100 text-yellow-700": apt.status === "Arrived",
+                          "bg-green-100 text-green-700": apt.status === "Completed",
+                          "bg-red-100 text-red-700": apt.status === "Cancelled",
+                          "bg-gray-100 text-gray-600": apt.status === "No Show",
+                        })}>
+                          {apt.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

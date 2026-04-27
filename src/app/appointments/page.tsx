@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
   Plus, Search, Loader2, X, Calendar, Clock,
@@ -264,6 +265,7 @@ function CreateAppointmentModal({ onClose, onSaved }: { onClose: () => void; onS
 
 // ─── Main Page ────────────────────────────────────────────
 export default function AppointmentsPage() {
+  const router = useRouter();
   const { user, isLoading: authLoading } = useRequireAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -425,12 +427,21 @@ export default function AppointmentsPage() {
                       </div>
                     </td>
                     <td className="px-5 py-3.5">
-                      <div className="text-sm font-semibold text-gray-900">{apt.patient.name}</div>
+                      <button onClick={() => router.push(`/patients/${apt.patient.patient_id}`)}
+                        className="text-sm font-semibold text-gray-900 hover:text-blue-600 hover:underline text-left transition-colors">
+                        {apt.patient.name}
+                      </button>
                       <div className="text-xs text-gray-400">{apt.patient.phone}</div>
                     </td>
                     <td className="px-5 py-3.5">
-                      <div className="text-sm font-semibold text-gray-900">{apt.doctor.name}</div>
-                      <div className="text-xs text-blue-600">{apt.doctor.specialization}</div>
+                      <button onClick={() => router.push(`/doctors/${apt.doctor.doctor_id}`)}
+                        className="text-sm font-semibold text-gray-900 hover:text-blue-600 hover:underline text-left transition-colors">
+                        {apt.doctor.name}
+                      </button>
+                      <div className="text-xs text-blue-600 cursor-pointer hover:underline"
+                        onClick={() => router.push(`/doctors/${apt.doctor.doctor_id}`)}>
+                        {apt.doctor.specialization}
+                      </div>
                     </td>
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-1.5 text-xs text-gray-600">
@@ -453,8 +464,8 @@ export default function AppointmentsPage() {
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => toast.success("View Appointment (Coming Soon)")}
-                          className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition" title="View">
+                        <button onClick={() => router.push(`/doctors/${apt.doctor.doctor_id}`)}
+                          className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition" title="View Doctor Profile">
                           <Eye className="w-4 h-4" />
                         </button>
                         <button onClick={() => toast.success("Edit Appointment (Coming Soon)")}
