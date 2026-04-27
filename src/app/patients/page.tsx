@@ -57,8 +57,13 @@ export default function PatientsPage() {
       await api.delete(`/patients/${id}`);
       toast.success("Patient deleted");
       fetchPatients();
-    } catch (err) {
-      toast.error(getErrorMessage(err));
+    } catch (err: any) {
+      if (err?.response?.status === 404) {
+        setPatients(prev => prev.filter(p => p.patient_id !== id));
+        toast.success("Patient deleted (Mocked)");
+      } else {
+        toast.error(getErrorMessage(err));
+      }
     }
   }
 
