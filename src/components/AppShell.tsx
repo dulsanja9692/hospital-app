@@ -46,8 +46,9 @@ const NAV: NavItem[] = [
     label: "Permissions", href: "/permissions", icon: <ShieldCheck className="w-4 h-4" />,
     roles: ["Super Admin","Hospital Admin","Receptionist"],
     children: [
-      { label: "Hospitals", href: "/permissions/hospitals", roles: ["Super Admin"] },
-      { label: "Users",     href: "/permissions/users",     roles: ["Super Admin","Hospital Admin","Receptionist"] },
+      { label: "Hospitals",     href: "/permissions/hospitals", roles: ["Super Admin"] },
+      { label: "Branches",      href: "/permissions/branches",  roles: ["Super Admin","Hospital Admin","Manager"] },
+      { label: "Users & Roles", href: "/permissions/users",     roles: ["Super Admin","Hospital Admin","Receptionist"] },
     ],
   },
 ];
@@ -57,6 +58,13 @@ function NavLink({ item, userRole, pathname, onClose }: {
   item: NavItem; userRole: Role; pathname: string; onClose: () => void;
 }) {
   const [open, setOpen] = useState(!!item.children?.some((c) => pathname.startsWith(c.href)));
+
+  useEffect(() => {
+    if (item.children?.some((c) => pathname.startsWith(c.href))) {
+      setOpen(true);
+    }
+  }, [pathname, item.children]);
+
   if (item.roles && !item.roles.includes(userRole)) return null;
 
   const isActive = item.children
@@ -291,7 +299,6 @@ function Sidebar({ userRole, userName, onClose }: {
     { label: "Core Operations", items: NAV.slice(1, 6) },
     { label: "Finance",         items: NAV.slice(6, 7) },
     { label: "Analytics",       items: NAV.slice(7, 8) },
-    { label: "System",          items: NAV.slice(8) },
   ];
 
   return (
