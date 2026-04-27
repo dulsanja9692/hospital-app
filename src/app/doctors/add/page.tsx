@@ -33,12 +33,13 @@ export default function AddDoctorPage() {
       // Auto-create a default session for the newly added doctor
       if (newDoc?.doctor_id) {
         await api.post("/sessions", {
-          doctor_id: newDoc.doctor_id,
-          date: dayjs().format("YYYY-MM-DD"),
+          doctor_id: String(newDoc.doctor_id),
+          session_date: dayjs().format("YYYY-MM-DD"),
           start_time: "09:00",
           end_time: "17:00",
-          max_patients: 20
-        }).catch(() => console.log("Auto-session generation failed (mocked)"));
+          max_patients: 20,
+          branch_id: 1
+        }).catch(() => console.log("Auto-session generation failed"));
       }
 
       toast.success("Doctor added and session opened!");

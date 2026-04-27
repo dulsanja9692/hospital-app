@@ -80,11 +80,12 @@ function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved
       };
 
       const payload = {
-        doctor_id: Number(form.doctor_id),
-        date: form.date,
+        doctor_id: String(form.doctor_id), // Backend explicitly asked for string
+        session_date: form.date,           // Backend expects session_date
         start_time: to24h(form.start_time),
         end_time: to24h(form.end_time),
         max_patients: Number(form.max_patients),
+        branch_id: 1,                      // Backend requires branch_id
       };
       await api.post("/sessions", payload);
       toast.success("Session created successfully!");
