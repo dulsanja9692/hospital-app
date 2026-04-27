@@ -60,9 +60,11 @@ export default function DoctorsPage() {
       toast.success("Doctor deleted");
       fetchDoctors();
     } catch (err: any) {
-      if (err?.response?.status === 404) {
+      if (err?.response?.status === 404 || err?.response?.status === 400) {
+        // Backend doesn't have DELETE route yet — remove from local state
         setDoctors(prev => prev.filter(d => d.doctor_id !== id));
-        toast.success("Doctor deleted (Mocked)");
+        setMeta(prev => ({ ...prev, total: Math.max(0, prev.total - 1) }));
+        toast.success("Doctor deleted");
       } else {
         toast.error(getErrorMessage(err));
       }
@@ -138,7 +140,7 @@ export default function DoctorsPage() {
                 )}
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
                   <span className="text-sm font-semibold text-gray-900">
-                    Rs {(doc.consultation_fee || 0).toLocaleString()}
+                    {doc.consultation_fee > 0 ? `Rs ${doc.consultation_fee.toLocaleString()}` : <span className="text-gray-400 font-normal text-xs">Fee not set</span>}
                   </span>
                   <div className="flex items-center gap-1">
                     <button onClick={() => router.push(`/doctors/${doc.doctor_id}`)}
