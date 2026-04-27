@@ -146,13 +146,13 @@ function NotificationDropdown({ onClose, onCountChange }: {
   async function markRead(id: string) {
     setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, status: "read" } : n));
     onCountChange(notifications.filter((n) => n.id !== id && n.status === "unread").length);
-    await api.patch(`/notifications/${id}`, { status: "read" }).catch(() => {});
+    await api.patch(`notifications/${id}`, { status: "read" }).catch(() => {});
   }
 
   async function deleteOne(id: string) {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
     onCountChange(notifications.filter((n) => n.id !== id && n.status === "unread").length);
-    await api.delete(`/notifications/${id}`).catch(() => {});
+    await api.delete(`notifications/${id}`).catch(() => {});
   }
 
   function timeAgo(date: string) {

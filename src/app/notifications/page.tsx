@@ -53,7 +53,7 @@ export default function NotificationsPage() {
 
   async function markRead(id: string) {
     try {
-      await api.patch(`/notifications/${id}`, { status: "read" }).catch(() => {});
+      await api.patch(`notifications/${id}`, { status: "read" }).catch(() => {});
       setNotifications((n) => n.map((x) => x.id === id ? { ...x, status: "read" } : x));
     } catch { /* ignore */ }
   }
@@ -68,7 +68,7 @@ export default function NotificationsPage() {
 
   async function deleteNotification(id: string) {
     try {
-      await api.delete(`/notifications/${id}`).catch(() => {});
+      await api.delete(`notifications/${id}`).catch(() => {});
       setNotifications((n) => n.filter((x) => x.id !== id));
     } catch { /* ignore */ }
   }

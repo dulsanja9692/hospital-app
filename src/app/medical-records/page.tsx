@@ -200,7 +200,7 @@ function AppointmentRow({ apt, onRecord, onRefresh }: {
 
   async function updateStatus(status: string) {
     try {
-      await api.patch(`/appointments/${apt.appointment_id}/status`, { status });
+      await api.patch(`appointments/${apt.appointment_id}/status`, { status });
       toast.success(`Status updated to ${status}`);
       onRefresh();
     } catch (err) {

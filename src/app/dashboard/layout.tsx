@@ -18,6 +18,7 @@ import {
   X,
   ShieldCheck,
   Building2,
+  FileText,
 } from "lucide-react";
 import { useInitAuth, useAuth, canAccessPermissions } from "@/hooks/useAuth";
 import api from "@/lib/api";
@@ -59,6 +60,11 @@ const NAV: NavItem[] = [
     label: "Appointments",
     href: "/appointments",
     icon: <Calendar className="w-4 h-4" />,
+  },
+  {
+    label: "Medical",
+    href: "/medical-records",
+    icon: <FileText className="w-4 h-4" />,
   },
   {
     label: "Payments",
@@ -239,19 +245,19 @@ function Sidebar({
         <div className="px-3 py-2 mt-2">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Core Operations</p>
         </div>
-        {NAV.slice(1, 5).map((item) => (
+        {NAV.slice(1, 6).map((item) => (
           <NavLink key={item.href} item={item} userRole={userRole} pathname={pathname} onClose={onClose} />
         ))}
 
         <div className="px-3 py-2 mt-2">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Analytics</p>
-        </div>
-        <NavLink item={NAV[5]} userRole={userRole} pathname={pathname} onClose={onClose} />
-
-        <div className="px-3 py-2 mt-2">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">System</p>
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Finance</p>
         </div>
         <NavLink item={NAV[6]} userRole={userRole} pathname={pathname} onClose={onClose} />
+
+        <div className="px-3 py-2 mt-2">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Analytics</p>
+        </div>
+        <NavLink item={NAV[7]} userRole={userRole} pathname={pathname} onClose={onClose} />
       </nav>
 
       {/* User info + logout */}
