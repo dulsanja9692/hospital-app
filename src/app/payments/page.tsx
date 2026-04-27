@@ -111,11 +111,17 @@ function ReceiptModal({ payment, onClose }: { payment: Payment; onClose: () => v
             <span className="text-blue-600">Rs {payment.total_amount.toLocaleString()}</span>
           </div>
 
-          {payment.transactions?.[0] && (
-            <div className="mt-2 text-center">
-              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
-                Paid via {payment.transactions[0].method}
-              </span>
+          {payment.transactions && payment.transactions.length > 0 && (
+            <div className="mt-4 pt-3 border-t border-gray-100">
+              <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 text-center">Transaction History</h4>
+              <div className="space-y-1">
+                {payment.transactions.map((t, i) => (
+                  <div key={i} className="flex justify-between text-[11px]">
+                    <span className="text-gray-500">{t.method} · {dayjs(t.date).format("MMM D")}</span>
+                    <span className="font-semibold">Rs {t.amount.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -139,7 +145,7 @@ function PaymentFormModal({ payment, onClose, onPaid }: {
   async function handlePay() {
     setLoading(true);
     try {
-      await api.post(`/payments/${payment.payment_id}/pay`, {
+      await api.post(`payments/${payment.payment_id}/pay`, {
         method, amount: payment.total_amount,
       });
       toast.success("Payment recorded successfully!");
@@ -207,6 +213,7 @@ function PaymentFormModal({ payment, onClose, onPaid }: {
 
 // ─── Main Page ────────────────────────────────────────────
 export default function PaymentsPage() {
+  const router = useRouter();
   const { user, isLoading: authLoading } = useRequireAuth();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -224,14 +231,14 @@ export default function PaymentsPage() {
       if (search) params.search = search;
       if (statusFilter) params.status = statusFilter.toLowerCase();
       
-      const res = await api.get("/payments", { params });
+      const res = await api.get("payments", { params });
       setPayments(res.data.data);
       setMeta(res.data.meta ?? { total: res.data.data.length, page: 1, limit: 20 });
     } catch (err: any) {
       if (err?.response?.status === 422 && statusFilter) {
         // Fallback: If status filtering is not supported by backend, fetch all and filter client-side
         try {
-          const res = await api.get("/payments", { params: { page: 1, limit: 100 } });
+          const res = await api.get("payments", { params: { page: 1, limit: 100 } });
           const allPayments = res.data.data as Payment[];
           const filtered = allPayments.filter(p => p.status === statusFilter);
           setPayments(filtered);
@@ -315,11 +322,17 @@ export default function PaymentsPage() {
                 {payments.map((p) => (
                   <tr key={p.payment_id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
                     <td className="px-5 py-3.5">
-                      <div className="text-sm font-semibold text-gray-900">{p.appointment.patient.name}</div>
+                      <button onClick={() => router.push(`/patients/${p.appointment.patient.patient_id}`)}
+                        className="text-sm font-semibold text-gray-900 hover:text-blue-600 hover:underline transition-colors text-left">
+                        {p.appointment.patient.name}
+                      </button>
                       <div className="text-xs text-gray-400">{p.appointment.patient.phone}</div>
                     </td>
                     <td className="px-5 py-3.5">
-                      <div className="text-sm font-semibold text-gray-900">{p.appointment.doctor.name}</div>
+                      <button onClick={() => router.push(`/doctors/${p.appointment.doctor.doctor_id}`)}
+                        className="text-sm font-semibold text-gray-900 hover:text-blue-600 hover:underline transition-colors text-left">
+                        {p.appointment.doctor.name}
+                      </button>
                       <div className="text-xs text-blue-600">{p.appointment.doctor.specialization}</div>
                     </td>
                     <td className="px-5 py-3.5">

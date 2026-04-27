@@ -36,7 +36,7 @@ export default function PatientsPage() {
     try {
       const params: Record<string, unknown> = { page, limit: 20 };
       if (search) params.search = search;
-      const res = await api.get("/patients", { params });
+      const res = await api.get("patients", { params });
       setPatients(res.data.data);
       setMeta(res.data.meta ?? { total: res.data.data.length, page: 1, limit: 20 });
     } catch (err) {
@@ -54,7 +54,7 @@ export default function PatientsPage() {
   async function handleDelete(id: string) {
     if (!window.confirm("Are you sure you want to delete this patient?")) return;
     try {
-      await api.delete(`/patients/${id}`);
+      await api.delete(`patients/${id}`);
       toast.success("Patient deleted");
       fetchPatients();
     } catch (err: any) {

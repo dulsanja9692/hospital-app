@@ -60,7 +60,7 @@ function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved
 
   useEffect(() => {
     setDoctorsLoading(true);
-    api.get("/doctors", { params: { limit: 100 } })
+    api.get("doctors", { params: { limit: 100 } })
       .then((r) => {
         const deletedIds = getDeletedDoctorIds();
         const filtered = (r.data.data as Doctor[]).filter(d => !deletedIds.has(d.doctor_id));
@@ -71,7 +71,7 @@ function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved
 
     // Fetch hospitals if Super Admin
     if (user?.role === "Super Admin") {
-      api.get("/hospitals", { params: { limit: 100 } })
+      api.get("hospitals", { params: { limit: 100 } })
         .then((r) => setHospitals(r.data.data))
         .catch(() => {});
     } else if (user?.hospital_id) {
@@ -84,11 +84,11 @@ function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved
   useEffect(() => {
     if (form.hospital_id) {
       // Trying both common patterns: /branches?hospital_id=... or /hospitals/:id/branches
-      api.get(`/branches`, { params: { hospital_id: form.hospital_id, limit: 100 } })
+      api.get(`branches`, { params: { hospital_id: form.hospital_id, limit: 100 } })
         .then((r) => setBranches(r.data.data))
         .catch(() => {
           // Fallback if the endpoint is nested
-          api.get(`/hospitals/${form.hospital_id}/branches`)
+          api.get(`hospitals/${form.hospital_id}/branches`)
             .then((r) => setBranches(r.data.data))
             .catch(() => {
               // If all else fails, set a default branch 1 so at least something can be tried
@@ -129,7 +129,7 @@ function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved
       };
       
       console.log("Sending session payload:", payload);
-      await api.post("/sessions", payload);
+      await api.post("sessions", payload);
       toast.success("Session created successfully!");
       onSaved(); onClose();
     } catch (err: any) {
@@ -406,7 +406,7 @@ export default function SessionsPage() {
   const fetchSessions = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get("/sessions", { params: { limit: 100 } });
+      const res = await api.get("sessions", { params: { limit: 100 } });
       setSessions(res.data.data);
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -418,7 +418,7 @@ export default function SessionsPage() {
   async function handleDelete(id: string) {
     if (!window.confirm("Are you sure you want to delete this session?")) return;
     try {
-      await api.delete(`/sessions/${id}`);
+      await api.delete(`sessions/${id}`);
       toast.success("Session deleted");
       fetchSessions();
     } catch (err: any) {

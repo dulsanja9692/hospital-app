@@ -82,11 +82,11 @@ function MedicalRecordForm({ appointment, onSaved, onClose }: {
         prescriptions: prescriptions.filter((p) => p.medicine.trim()),
       };
       if (isEdit) {
-        await api.put(`/medical-records/${appointment.medical_record!.record_id}`, payload);
+        await api.put(`medical-records/${appointment.medical_record!.record_id}`, payload);
       } else {
-        await api.post("/medical-records", payload);
+        await api.post("medical-records", payload);
         // Mark appointment as completed
-        await api.patch(`/appointments/${appointment.appointment_id}/status`, { status: "Completed" }).catch(() => {});
+        await api.patch(`appointments/${appointment.appointment_id}/status`, { status: "Completed" }).catch(() => {});
       }
       toast.success(isEdit ? "Record updated!" : "Medical record saved!");
       onSaved();
@@ -296,7 +296,7 @@ export default function MedicalRecordsPage() {
       const params: Record<string, unknown> = { limit: 50 };
       if (dateFilter) params.date = dateFilter;
       // If doctor, only fetch their appointments
-      const res = await api.get("/appointments", { params });
+      const res = await api.get("appointments", { params });
       setAppointments(res.data.data);
     } catch (err) {
       toast.error(getErrorMessage(err));

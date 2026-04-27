@@ -48,7 +48,7 @@ function UserModal({ currentUser, editUser, hospitals, onClose, onSaved }: {
 
   useEffect(() => {
     if (form.hospital_id) {
-      api.get("/branches", { params: { hospital_id: form.hospital_id, limit: 100 } })
+      api.get("branches", { params: { hospital_id: form.hospital_id, limit: 100 } })
         .then(r => setBranches(r.data.data))
         .catch(() => {
           api.get(`/hospitals/${form.hospital_id}/branches`)
@@ -138,7 +138,7 @@ function UserModal({ currentUser, editUser, hospitals, onClose, onSaved }: {
               </select>
             </div>
           )}
-          {(form.hospital_id || currentUserRole !== "Super Admin") && (
+          {(form.hospital_id || (currentUserRole !== "Super Admin" && currentUserRole !== "Manager")) && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Branch</label>
               <select value={form.branch_id} onChange={(e) => setForm((f) => ({ ...f, branch_id: e.target.value }))}
@@ -226,7 +226,7 @@ export default function UsersPage() {
     if (!currentUser) return;
     setLoading(true);
     try {
-      const res = await api.get("users");
+      const res = await api.get("users", { params: { search, role: roleFilter, hospital_id: hospitalFilter, page } });
       setUsers(res.data.data);
       setMeta(res.data.meta ?? { total: res.data.data.length, page: 1, limit: 15 });
     } catch (err: unknown) {
@@ -250,12 +250,8 @@ export default function UsersPage() {
     <div className="animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Users</h1>
-          <p className="text-gray-500 text-sm mt-1">
-            {currentUser.role === "Super Admin" ? "All users across all hospitals"
-              : currentUser.role === "Hospital Admin" ? "All users in your hospital"
-              : "Users in your branch"}
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">Users & Roles</h1>
+          <p className="text-gray-500 text-sm mt-1">Manage platform users and their access levels</p>
         </div>
         {canCreateUsers && (
           <button onClick={() => { setEditTarget(undefined); setModalOpen(true); }}

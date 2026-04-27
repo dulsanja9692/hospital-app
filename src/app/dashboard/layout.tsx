@@ -82,7 +82,7 @@ const NAV: NavItem[] = [
         roles: ["Super Admin", "Hospital Admin", "Manager"],
       },
       {
-        label: "Users",
+        label: "Users & Roles",
         href: "/permissions/users",
         roles: ["Super Admin", "Hospital Admin", "Receptionist", "Manager"],
       },
@@ -197,7 +197,7 @@ function Sidebar({
 
   async function handleLogout() {
     try {
-      await api.post("/auth/logout");
+      await api.post("auth/logout");
     } catch {
       // ignore
     }

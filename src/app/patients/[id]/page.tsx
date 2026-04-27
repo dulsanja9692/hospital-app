@@ -71,8 +71,8 @@ export default function PatientDetailPage() {
     async function load() {
       try {
         const [pRes, aRes] = await Promise.all([
-          api.get(`/patients/${patientId}`),
-          api.get(`/patients/${patientId}/appointments`).catch(() => ({ data: { data: [] } })),
+          api.get(`patients/${patientId}`),
+          api.get(`patients/${patientId}/appointments`).catch(() => ({ data: { data: [] } })),
         ]);
         const p = pRes.data.data;
         setPatient(p);
@@ -91,7 +91,7 @@ export default function PatientDetailPage() {
   async function handleSave() {
     setSaving(true);
     try {
-      const res = await api.put(`/patients/${patientId}`, editForm);
+      const res = await api.put(`patients/${patientId}`, editForm);
       setPatient(res.data.data);
       setEditing(false);
       toast.success("Patient updated successfully");
@@ -205,12 +205,15 @@ export default function PatientDetailPage() {
           </div>
         </div>
 
-        {/* Appointment History */}
-        <div className="lg:col-span-2">
+        {/* Appointment & Payment History */}
+        <div className="lg:col-span-2 space-y-5">
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100">
-              <h3 className="font-semibold text-gray-900">Appointment History</h3>
-              <p className="text-xs text-gray-500 mt-0.5">{appointments.length} total appointments</p>
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-gray-900">Appointment History</h3>
+                <p className="text-xs text-gray-500 mt-0.5">{appointments.length} total appointments</p>
+              </div>
+              <button onClick={() => router.push("/appointments")} className="text-xs text-blue-600 font-medium hover:underline">View All</button>
             </div>
 
             {appointments.length === 0 ? (
@@ -220,29 +223,49 @@ export default function PatientDetailPage() {
               </div>
             ) : (
               <div className="divide-y divide-gray-50">
-                {appointments.map((apt) => (
+                {appointments.slice(0, 5).map((apt) => (
                   <div key={apt.appointment_id} className="px-5 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="bg-gray-50 rounded-xl p-2">
-                        <User className="w-4 h-4 text-gray-400" />
-                      </div>
+                      <div className="bg-gray-50 rounded-xl p-2 text-gray-400"><User className="w-4 h-4" /></div>
                       <div>
-                        <div className="text-sm font-semibold text-gray-900">
-                          {apt.doctor?.name ?? "Doctor"}
-                        </div>
+                        <div className="text-sm font-semibold text-gray-900">{apt.doctor?.name ?? "Doctor"}</div>
                         <div className="text-xs text-gray-400">
                           {apt.session?.date ? dayjs(apt.session.date).format("MMM D, YYYY") : "—"}
                           {apt.session?.start_time ? ` · ${apt.session.start_time}` : ""}
                         </div>
                       </div>
                     </div>
-                    <span className={`text-xs px-2.5 py-1 rounded-lg font-medium ${STATUS_STYLES[apt.status] ?? "bg-gray-100 text-gray-600"}`}>
-                      {apt.status}
-                    </span>
+                    <div className="flex items-center gap-4">
+                      <span className={`text-xs px-2.5 py-1 rounded-lg font-medium ${STATUS_STYLES[apt.status] ?? "bg-gray-100 text-gray-600"}`}>
+                        {apt.status}
+                      </span>
+                      {apt.status === "Completed" && (
+                         <button onClick={() => router.push(`/payments?search=${apt.appointment_id}`)}
+                           className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 transition">
+                           <CreditCard className="w-4 h-4" />
+                         </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
             )}
+          </div>
+
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-gray-900 text-sm">Recent Payments</h3>
+              </div>
+              <button onClick={() => router.push(`/payments?search=${patient.name}`)} className="text-xs text-blue-600 font-medium hover:underline">View Billing</button>
+            </div>
+            <div className="p-5 text-center text-gray-400">
+              <p className="text-xs">Direct billing summary available on the Payments page.</p>
+              <button onClick={() => router.push(`/payments?search=${patient.name}`)}
+                className="mt-3 inline-flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 hover:bg-gray-50 transition">
+                <CreditCard className="w-3.5 h-3.5" /> View Patient Ledger
+              </button>
+            </div>
           </div>
         </div>
       </div>

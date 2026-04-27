@@ -34,7 +34,7 @@ export default function NotificationsPage() {
       const params: Record<string, string> = { limit: "50" };
       if (filter !== "all") params.status = filter;
       if (typeFilter) params.type = typeFilter;
-      const res = await api.get("/notifications", { params });
+      const res = await api.get("notifications", { params });
       setNotifications(res.data.data ?? []);
     } catch {
       // Show mock data if API not ready
@@ -60,7 +60,7 @@ export default function NotificationsPage() {
 
   async function markAllRead() {
     try {
-      await api.patch("/notifications/read-all").catch(() => {});
+      await api.patch("notifications/read-all").catch(() => {});
       setNotifications((n) => n.map((x) => ({ ...x, status: "read" })));
       toast.success("All marked as read");
     } catch { /* ignore */ }

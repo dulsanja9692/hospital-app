@@ -98,7 +98,7 @@ export default function DoctorDetailPage() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await api.get(`/doctors/${doctorId}`);
+        const res = await api.get(`doctors/${doctorId}`);
         const d = res.data.data;
         const cachedFee = getCachedFee(doctorId);
         const merged = { ...d, consultation_fee: cachedFee || d.consultation_fee };
@@ -118,7 +118,7 @@ export default function DoctorDetailPage() {
   useEffect(() => {
     if (activeTab !== "sessions") return;
     setSessionsLoading(true);
-    api.get("/sessions", { params: { doctor_id: doctorId, limit: 50 } })
+    api.get("sessions", { params: { doctor_id: doctorId, limit: 50 } })
       .then(r => setSessions(r.data.data))
       .catch(() => setSessions([]))
       .finally(() => setSessionsLoading(false));
@@ -128,7 +128,7 @@ export default function DoctorDetailPage() {
   useEffect(() => {
     if (activeTab !== "appointments") return;
     setAppointmentsLoading(true);
-    api.get("/appointments", { params: { doctor_id: doctorId, limit: 50 } })
+    api.get("appointments", { params: { doctor_id: doctorId, limit: 50 } })
       .then(r => setAppointments(r.data.data))
       .catch(() => setAppointments([]))
       .finally(() => setAppointmentsLoading(false));
@@ -138,7 +138,7 @@ export default function DoctorDetailPage() {
     setSaving(true);
     try {
       const payload = { ...editForm, consultation_fee: Number(editForm.consultation_fee) };
-      const res = await api.put(`/doctors/${doctorId}`, payload);
+      const res = await api.put(`doctors/${doctorId}`, payload);
       cacheFee(doctorId, payload.consultation_fee);
       const returnedDoctor = res.data.data;
       setDoctor({ ...returnedDoctor, consultation_fee: payload.consultation_fee });
@@ -337,16 +337,17 @@ export default function DoctorDetailPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50/50">
+                  <tr className="border-b border-gray-100 bg-gray-50/50 dark:bg-gray-800/50">
                     <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Queue</th>
                     <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Patient</th>
                     <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Session Date</th>
                     <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-5 py-3.5" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {appointments.map(apt => (
-                    <tr key={apt.appointment_id} className="hover:bg-gray-50/50 transition-colors">
+                    <tr key={apt.appointment_id} className="hover:bg-gray-50/50 transition-colors group">
                       <td className="px-5 py-3.5">
                         <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center text-blue-700 font-bold text-sm">
                           #{apt.queue_number}
@@ -381,12 +382,33 @@ export default function DoctorDetailPage() {
                           {apt.status}
                         </span>
                       </td>
+                      <td className="px-5 py-3.5 text-right">
+                        {apt.status === "Completed" && (
+                          <button onClick={() => router.push(`/payments?search=${apt.appointment_id}`)}
+                            className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 opacity-0 group-hover:opacity-100 transition" title="View Payment">
+                            <CreditCard className="w-4 h-4" />
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {activeTab === "profile" && (
+        <div className="mt-6 bg-blue-50 border border-blue-100 rounded-2xl p-5 flex items-center justify-between">
+          <div>
+            <h4 className="font-semibold text-blue-900 text-sm">Financial Summary</h4>
+            <p className="text-blue-700 text-xs mt-1">View all payments and earnings related to this doctor.</p>
+          </div>
+          <button onClick={() => router.push(`/payments?search=${doctor.name}`)}
+            className="px-4 py-2 bg-white text-blue-600 border border-blue-200 rounded-xl text-xs font-bold hover:bg-blue-600 hover:text-white transition-all">
+            View Earnings
+          </button>
         </div>
       )}
     </div>

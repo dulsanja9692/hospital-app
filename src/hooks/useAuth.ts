@@ -33,9 +33,9 @@ export function useInitAuth() {
 
       // 2. Try refresh cookie (works when backend CORS is configured for cookies)
       try {
-        const refreshRes = await api.post("/auth/refresh");
+        const refreshRes = await api.post("auth/refresh");
         const token = refreshRes.data.data.accessToken;
-        const meRes = await api.get("/auth/me", {
+        const meRes = await api.get("auth/me", {
           headers: { Authorization: `Bearer ${token}` },
         });
         setUser(meRes.data.data.user as AuthUser, token);

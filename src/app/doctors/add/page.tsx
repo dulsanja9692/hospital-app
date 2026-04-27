@@ -26,7 +26,7 @@ export default function AddDoctorPage() {
 
   useEffect(() => {
     if (user?.role === "Super Admin") {
-      api.get("/hospitals", { params: { limit: 100 } })
+      api.get("hospitals", { params: { limit: 100 } })
         .then((r) => setHospitals(r.data.data))
         .catch(() => {});
     } else if (user?.hospital_id) {
@@ -36,10 +36,10 @@ export default function AddDoctorPage() {
 
   useEffect(() => {
     if (form.hospital_id) {
-      api.get("/branches", { params: { hospital_id: form.hospital_id, limit: 100 } })
+      api.get("branches", { params: { hospital_id: form.hospital_id, limit: 100 } })
         .then((r) => setBranches(r.data.data))
         .catch(() => {
-          api.get(`/hospitals/${form.hospital_id}/branches`)
+          api.get(`hospitals/${form.hospital_id}/branches`)
             .then((r) => setBranches(r.data.data))
             .catch(() => setBranches([{ branch_id: "1", name: "Main Branch" }]));
         });
@@ -56,7 +56,7 @@ export default function AddDoctorPage() {
     try {
       // Never send hospital_id in request bodies — backend reads it from JWT automatically
       const { hospital_id, branch_id, ...doctorData } = form;
-      const res = await api.post("/doctors", { 
+      const res = await api.post("doctors", { 
         ...doctorData, 
         consultation_fee: Number(form.consultation_fee) 
       });
@@ -64,7 +64,7 @@ export default function AddDoctorPage() {
       
       // Auto-create a default session for the newly added doctor
       if (newDoc?.doctor_id) {
-        await api.post("/sessions", {
+        await api.post("sessions", {
           doctor_id: String(newDoc.doctor_id),
           branch_id: String(form.branch_id),
           session_date: dayjs().format("YYYY-MM-DD"),

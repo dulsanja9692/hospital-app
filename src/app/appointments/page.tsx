@@ -57,14 +57,14 @@ function CreateAppointmentModal({ onClose, onSaved }: { onClose: () => void; onS
 
   // Load patients
   useEffect(() => {
-    api.get("/patients", { params: { search: patientSearch, limit: 10 } })
+    api.get("patients", { params: { search: patientSearch, limit: 10 } })
       .then((r) => setPatients(r.data.data)).catch(() => {});
   }, [patientSearch]);
 
   // Load doctors
   useEffect(() => {
     if (step >= 2) {
-      api.get("/doctors", { params: { search: doctorSearch, limit: 10 } })
+      api.get("doctors", { params: { search: doctorSearch, limit: 10 } })
         .then((r) => setDoctors(r.data.data)).catch(() => {});
     }
   }, [step, doctorSearch]);
@@ -72,7 +72,7 @@ function CreateAppointmentModal({ onClose, onSaved }: { onClose: () => void; onS
   // Load sessions for selected doctor
   useEffect(() => {
     if (step === 3 && selectedDoctor) {
-      api.get("/sessions", {
+      api.get("sessions", {
         params: { doctor_id: selectedDoctor.doctor_id, status: "Open", limit: 20 }
       }).then((r) => setSessions(r.data.data)).catch(() => {});
     }
@@ -82,7 +82,7 @@ function CreateAppointmentModal({ onClose, onSaved }: { onClose: () => void; onS
     if (!selectedPatient || !selectedDoctor || !selectedSession) return;
     setLoading(true);
     try {
-      await api.post("/appointments", {
+      await api.post("appointments", {
         patient_id: selectedPatient.patient_id,
         doctor_id:  selectedDoctor.doctor_id,
         session_id: selectedSession.session_id,
@@ -284,14 +284,14 @@ export default function AppointmentsPage() {
       if (statusFilter) params.status = statusFilter.toLowerCase();
       if (dateFilter) params.date = dateFilter;
       
-      const res = await api.get("/appointments", { params });
+      const res = await api.get("appointments", { params });
       setAppointments(res.data.data);
       setMeta(res.data.meta ?? { total: res.data.data.length, page: 1, limit: 20 });
     } catch (err: any) {
       if (err?.response?.status === 422 && statusFilter) {
         // Fallback: Fetch all and filter client-side if status filtering fails
         try {
-          const res = await api.get("/appointments", { params: { page: 1, limit: 100, date: dateFilter } });
+          const res = await api.get("appointments", { params: { page: 1, limit: 100, date: dateFilter } });
           const all = res.data.data as Appointment[];
           const filtered = all.filter(a => a.status === statusFilter);
           setAppointments(filtered);
@@ -312,7 +312,7 @@ export default function AppointmentsPage() {
   async function handleDelete(id: string) {
     if (!window.confirm("Are you sure you want to delete this appointment?")) return;
     try {
-      await api.delete(`/appointments/${id}`);
+      await api.delete(`appointments/${id}`);
       toast.success("Appointment deleted");
       fetchAppointments();
     } catch (err: any) {
@@ -327,12 +327,12 @@ export default function AppointmentsPage() {
 
   async function handleStatusChange(id: string, newStatus: string, apt: Appointment) {
     try {
-      await api.patch(`/appointments/${id}`, { status: newStatus });
+      await api.patch(`appointments/${id}`, { status: newStatus });
       toast.success(`Status updated to ${newStatus}`);
       
       // Auto-create payment if completed
       if (newStatus === "Completed" && apt.status !== "Completed") {
-        await api.post("/payments", {
+        await api.post("payments", {
           appointment_id: id,
           amount: 2000, // mock amount since we don't have consultation_fee
         }).catch(() => {});

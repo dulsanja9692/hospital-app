@@ -32,7 +32,7 @@ export default function RegisterPatientPage() {
     setLoading(true);
     try {
       const payload = { ...form, age: Number(form.age) };
-      await api.post("/patients", payload);
+      await api.post("patients", payload);
       toast.success("Patient registered successfully!");
       router.push("/patients");
     } catch (err) {

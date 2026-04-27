@@ -115,7 +115,7 @@ function NotificationDropdown({ onClose, onCountChange }: {
 
   const loadNotifications = useCallback(async () => {
     try {
-      const res = await api.get("/notifications", { params: { limit: 10 } });
+      const res = await api.get("notifications", { params: { limit: 10 } });
       const data = res.data.data ?? [];
       setNotifications(data);
       onCountChange(data.filter((n: Notification) => n.status === "unread").length);
@@ -272,7 +272,7 @@ function Sidebar({ userRole, userName, onClose }: {
   const { logout } = useAuth();
 
   async function handleLogout() {
-    try { await api.post("/auth/logout"); } catch { /* ignore */ }
+    try { await api.post("auth/logout"); } catch { /* ignore */ }
     logout();
     router.replace("/login");
     toast.success("Signed out");
