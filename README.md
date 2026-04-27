@@ -1,7 +1,4 @@
-<<<<<<< HEAD
-# hospital-app
-Manage appointments, doctors, patients, and billing
-=======
+
 # 🏥 Hospital Management System — Frontend
 
 Built with **Next.js 14 + TypeScript + Tailwind CSS**  
@@ -119,8 +116,8 @@ Since your Postman link expired, here's how to test manually:
 - **Body** (JSON):
 ```json
 {
-  "email": "your-test-email@hospital.com",
-  "password": "yourpassword"
+  "email": "admin@hospital.com",
+  "password": "Admin@123"
 }
 ```
 - Copy the `accessToken` from the response
@@ -175,4 +172,3 @@ npm start
 2. **Never send `hospital_id` in request bodies** — backend reads it from JWT automatically
 3. **Role enforcement is on the backend** — frontend role hiding is UX only
 4. All fees in receipts come from the **appointment snapshot**, not current doctor fees
->>>>>>> 45b8192 (Initial commit : Set up hospital app structure)
