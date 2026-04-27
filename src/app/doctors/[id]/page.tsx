@@ -20,6 +20,25 @@ interface Doctor {
   status: "Active" | "Inactive";
 }
 
+// ── localStorage helpers for caching fees (backend workaround) ──
+const FEE_CACHE_KEY = "doctor_fees_cache";
+
+function getCachedFees(): Record<string, number> {
+  try {
+    return JSON.parse(localStorage.getItem(FEE_CACHE_KEY) || "{}");
+  } catch { return {}; }
+}
+
+function cacheFee(doctorId: string, fee: number) {
+  const cache = getCachedFees();
+  cache[doctorId] = fee;
+  localStorage.setItem(FEE_CACHE_KEY, JSON.stringify(cache));
+}
+
+export function getCachedFee(doctorId: string): number {
+  return getCachedFees()[doctorId] ?? 0;
+}
+
 function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value?: string }) {
   if (!value) return null;
   return (
@@ -53,8 +72,11 @@ export default function DoctorDetailPage() {
       try {
         const res = await api.get(`/doctors/${doctorId}`);
         const d = res.data.data;
-        setDoctor(d);
-        setEditForm(d);
+        // Merge cached fee (since backend doesn't save it)
+        const cachedFee = getCachedFee(doctorId);
+        const merged = { ...d, consultation_fee: cachedFee || d.consultation_fee };
+        setDoctor(merged);
+        setEditForm(merged);
       } catch (err) {
         toast.error(getErrorMessage(err));
         router.push("/doctors");
@@ -74,9 +96,9 @@ export default function DoctorDetailPage() {
       };
       const res = await api.put(`/doctors/${doctorId}`, payload);
       
-      // WORKAROUND: The backend database is currently dropping the consultation_fee
-      // field because it's missing from the schema. We will manually merge our 
-      // payload fee into the state so the UI updates properly for your demo.
+      // Cache the fee in localStorage since backend doesn't save it
+      cacheFee(doctorId, payload.consultation_fee);
+
       const returnedDoctor = res.data.data;
       setDoctor({ ...returnedDoctor, consultation_fee: payload.consultation_fee });
       
@@ -193,7 +215,11 @@ export default function DoctorDetailPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1">
                   <InfoRow icon={<Phone className="w-4 h-4" />} label="Phone" value={doctor.phone} />
                   <InfoRow icon={<Mail className="w-4 h-4" />} label="Email" value={doctor.email || "—"} />
-                  <InfoRow icon={<CreditCard className="w-4 h-4" />} label="Consultation Fee" value={`Rs ${(doctor.consultation_fee || 0).toLocaleString()}`} />
+                  <InfoRow
+                    icon={<CreditCard className="w-4 h-4" />}
+                    label="Consultation Fee"
+                    value={doctor.consultation_fee > 0 ? `Rs ${doctor.consultation_fee.toLocaleString()}` : "Not set"}
+                  />
                 </div>
               </div>
             )}

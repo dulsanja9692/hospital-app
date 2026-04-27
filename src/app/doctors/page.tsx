@@ -11,6 +11,12 @@ import { useRequireAuth } from "@/hooks/useAuth";
 import api from "@/lib/api";
 import { getErrorMessage, cn } from "@/lib/utils";
 
+// Read localStorage fee cache saved by the profile page
+function getCachedFees(): Record<string, number> {
+  try { return JSON.parse(localStorage.getItem("doctor_fees_cache") || "{}"); }
+  catch { return {}; }
+}
+
 interface Doctor {
   doctor_id: string;
   name: string;
@@ -39,7 +45,13 @@ export default function DoctorsPage() {
       if (search) params.search = search;
       if (statusFilter) params.status = statusFilter;
       const res = await api.get("/doctors", { params });
-      setDoctors(res.data.data);
+      // Merge locally-cached fees since backend doesn't persist them
+      const feeCache = getCachedFees();
+      const merged = res.data.data.map((d: Doctor) => ({
+        ...d,
+        consultation_fee: feeCache[d.doctor_id] ?? d.consultation_fee
+      }));
+      setDoctors(merged);
       setMeta(res.data.meta ?? { total: res.data.data.length, page: 1, limit: 20 });
     } catch (err) {
       toast.error(getErrorMessage(err));
