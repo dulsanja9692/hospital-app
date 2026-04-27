@@ -6,7 +6,9 @@ const BASE_URL =
 
 const api = axios.create({
   baseURL: BASE_URL,
-  withCredentials: true, // sends httpOnly refresh cookie automatically
+  // TEMPORARY FIX: Disabled withCredentials because backend is returning wildcard '*' for CORS.
+  // This allows login to work but breaks the httpOnly refresh token.
+  withCredentials: false,
 });
 
 // ── In-memory token storage (never localStorage) ──────────
