@@ -63,7 +63,7 @@ function CreateAppointmentModal({ onClose, onSaved }: { onClose: () => void; onS
   // Load doctors
   useEffect(() => {
     if (step >= 2) {
-      api.get("/doctors", { params: { search: doctorSearch, limit: 10, status: "Active" } })
+      api.get("/doctors", { params: { search: doctorSearch, limit: 10 } })
         .then((r) => setDoctors(r.data.data)).catch(() => {});
     }
   }, [step, doctorSearch]);

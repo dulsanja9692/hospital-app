@@ -50,7 +50,7 @@ function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved
 
   useEffect(() => {
     setDoctorsLoading(true);
-    api.get("/doctors", { params: { limit: 100, status: "Active" } })
+    api.get("/doctors", { params: { limit: 100 } })
       .then((r) => {
         const deletedIds = getDeletedDoctorIds();
         const filtered = (r.data.data as Doctor[]).filter(d => !deletedIds.has(d.doctor_id));
