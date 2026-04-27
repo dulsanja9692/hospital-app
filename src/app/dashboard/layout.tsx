@@ -77,6 +77,11 @@ const NAV: NavItem[] = [
         roles: ["Super Admin"],
       },
       {
+        label: "Branches",
+        href: "/permissions/branches",
+        roles: ["Super Admin", "Hospital Admin"],
+      },
+      {
         label: "Users",
         href: "/permissions/users",
         roles: ["Super Admin", "Hospital Admin", "Receptionist"],
