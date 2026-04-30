@@ -293,6 +293,7 @@ function Sidebar({ userRole, userName, onClose }: {
     "Receptionist":   "bg-green-100 text-green-700",
     "Doctor":         "bg-teal-100 text-teal-700",
     "Accountant":     "bg-orange-100 text-orange-700",
+    "Nurse":          "bg-rose-100 text-rose-700",
   };
 
   const groups = [

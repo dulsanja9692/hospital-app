@@ -20,8 +20,8 @@ interface Payment {
   appointment: {
     appointment_id: string;
     queue_number: number;
-    patient: { name: string; phone: string };
-    doctor:  { name: string; specialization: string; consultation_fee: number };
+    patient: { patient_id: string; name: string; phone: string };
+    doctor:  { doctor_id: string; name: string; specialization: string; consultation_fee: number };
     session: { date: string; start_time: string };
   };
   transactions: { method: string; amount: number; date: string }[];

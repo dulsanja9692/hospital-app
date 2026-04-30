@@ -5,7 +5,8 @@ export type Role =
   | "Manager"
   | "Receptionist"
   | "Doctor"
-  | "Accountant";
+  | "Accountant"
+  | "Nurse";
 
 export interface AuthUser {
   user_id: string;
@@ -72,12 +73,13 @@ export interface ApiError {
 // ─── Permissions matrix ──────────────────────────────────
 // Which roles each role can CREATE
 export const CREATABLE_ROLES: Record<Role, Role[]> = {
-  "Super Admin":    ["Super Admin", "Hospital Admin", "Manager", "Receptionist", "Doctor", "Accountant"],
-  "Hospital Admin": ["Hospital Admin", "Manager", "Receptionist", "Doctor", "Accountant"],
-  "Manager":        ["Manager", "Receptionist", "Doctor", "Accountant"],
-  "Receptionist":   ["Receptionist", "Doctor", "Accountant"],
+  "Super Admin":    ["Super Admin", "Hospital Admin", "Manager", "Receptionist", "Doctor", "Accountant", "Nurse"],
+  "Hospital Admin": ["Hospital Admin", "Manager", "Receptionist", "Doctor", "Accountant", "Nurse"],
+  "Manager":        ["Manager", "Receptionist", "Doctor", "Accountant", "Nurse"],
+  "Receptionist":   ["Receptionist", "Doctor", "Accountant", "Nurse"],
   "Doctor":         [],
   "Accountant":     [],
+  "Nurse":          [],
 };
 
 // Which roles can access the Permissions interface

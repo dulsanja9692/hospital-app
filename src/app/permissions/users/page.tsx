@@ -19,6 +19,7 @@ const ROLE_STYLES: Record<Role, string> = {
   "Receptionist":   "bg-green-100 text-green-700 border-green-200",
   "Doctor":         "bg-teal-100 text-teal-700 border-teal-200",
   "Accountant":     "bg-orange-100 text-orange-700 border-orange-200",
+  "Nurse":          "bg-rose-100 text-rose-700 border-rose-200",
 };
 
 function RoleBadge({ role }: { role: Role }) {

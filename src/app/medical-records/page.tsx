@@ -57,7 +57,7 @@ function MedicalRecordForm({ appointment, onSaved, onClose }: {
   });
   const [prescriptions, setPrescriptions] = useState<Omit<Prescription, "id">[]>(
     appointment.medical_record?.prescriptions?.map((p) => ({
-      medicine_name: p.medicine, dose: p.dose, frequency: "", duration: "", instructions: p.instruct,
+      medicine_name: p.medicine_name, dose: p.dose, frequency: p.frequency, duration: p.duration, instructions: p.instructions,
     })) ?? [{ medicine_name: "", dose: "", frequency: "", duration: "", instructions: "" }]
   );
   const [loading, setLoading] = useState(false);
