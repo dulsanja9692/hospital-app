@@ -211,7 +211,7 @@ function CalendarView({ sessions, onDayClick }: {
   const today = dayjs().format("YYYY-MM-DD");
 
   const sessionsByDate = sessions.reduce<Record<string, Session[]>>((acc, s) => {
-    const d = s.date.substring(0, 10);
+    const d = s.date?.substring(0, 10) || "unknown";
     if (!acc[d]) acc[d] = [];
     acc[d].push(s);
     return acc;

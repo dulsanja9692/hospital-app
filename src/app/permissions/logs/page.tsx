@@ -97,7 +97,7 @@ export default function AuditLogsPage() {
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-white rounded-3xl border border-gray-100 p-6 mb-8 shadow-sm">
+      <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-8 shadow-sm">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">User</label>
@@ -160,7 +160,7 @@ export default function AuditLogsPage() {
       </div>
 
       {/* Results Table */}
-      <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm">
+      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
         {loading ? (
           <div className="py-32 flex flex-col items-center gap-4">
             <Loader2 className="w-8 h-8 animate-spin text-blue-600" />

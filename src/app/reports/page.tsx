@@ -70,18 +70,18 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto animate-fade-in pb-10">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+    <div className="animate-fade-in pb-10">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Reports & Analytics</h1>
           <p className="text-gray-500 text-sm mt-1">Institutional performance and financial insights</p>
         </div>
         
-        <div className="flex items-center gap-3 bg-white p-1.5 rounded-2xl border border-gray-100 shadow-sm">
+        <div className="flex bg-gray-100 rounded-xl p-1">
           {(["revenue", "visits", "performance"] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}
-              className={cn("px-4 py-2 rounded-xl text-sm font-bold transition-all capitalize",
-                tab === t ? "bg-blue-600 text-white shadow-md shadow-blue-100" : "text-gray-500 hover:text-gray-900")}>
+              className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition-all capitalize",
+                tab === t ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700")}>
               {t === "visits" ? "Patient Visits" : t}
             </button>
           ))}
@@ -90,14 +90,14 @@ export default function ReportsPage() {
 
       {/* Filters (only for Revenue for now as per API) */}
       {tab === "revenue" && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-8 flex flex-wrap items-center gap-4">
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-6 flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-gray-400" />
             <input type="date" value={range.start} onChange={(e) => setRange(r => ({ ...r, start: e.target.value }))}
-              className="text-sm font-medium border-none focus:ring-0 p-0 w-32" />
+              className="text-sm font-medium border-none bg-transparent focus:ring-0 p-0 w-32" />
             <span className="text-gray-300">to</span>
             <input type="date" value={range.end} onChange={(e) => setRange(r => ({ ...r, end: e.target.value }))}
-              className="text-sm font-medium border-none focus:ring-0 p-0 w-32" />
+              className="text-sm font-medium border-none bg-transparent focus:ring-0 p-0 w-32" />
           </div>
           <div className="h-4 w-px bg-gray-100 mx-2 hidden sm:block" />
           <button onClick={loadData} className="px-4 py-1.5 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-gray-800 transition">
@@ -113,7 +113,7 @@ export default function ReportsPage() {
       {tab === "revenue" && revenueData && (
         <div className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
+            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2.5 bg-green-50 rounded-xl"><CreditCard className="w-5 h-5 text-green-600" /></div>
                 <h3 className="font-bold text-gray-900">Total Revenue</h3>
@@ -122,7 +122,7 @@ export default function ReportsPage() {
               <p className="text-xs text-gray-400 mt-1">From {revenueData.total?.appointment_count || 0} appointments</p>
             </div>
             
-            <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
+            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2.5 bg-blue-50 rounded-xl"><Target className="w-5 h-5 text-blue-600" /></div>
                 <h3 className="font-bold text-gray-900">Average/Appointment</h3>
@@ -133,7 +133,7 @@ export default function ReportsPage() {
               <p className="text-xs text-gray-400 mt-1">Net collection per patient</p>
             </div>
 
-            <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
+            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2.5 bg-orange-50 rounded-xl"><TrendingUp className="w-5 h-5 text-orange-600" /></div>
                 <h3 className="font-bold text-gray-900">Projected Growth</h3>
@@ -144,7 +144,7 @@ export default function ReportsPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm">
+            <div className="bg-white rounded-2xl border border-gray-100 p-8 shadow-sm">
               <h3 className="font-bold text-gray-900 mb-8 flex items-center gap-2">
                 <PieChart className="w-5 h-5 text-gray-400" /> Payment Methods
               </h3>
@@ -158,7 +158,7 @@ export default function ReportsPage() {
               />
             </div>
             
-            <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm">
+            <div className="bg-white rounded-2xl border border-gray-100 p-8 shadow-sm">
               <h3 className="font-bold text-gray-900 mb-8 flex items-center gap-2">
                 <Activity className="w-5 h-5 text-gray-400" /> Top Revenue Contributors
               </h3>
@@ -189,7 +189,7 @@ export default function ReportsPage() {
       {/* Tab: Patient Visits */}
       {tab === "visits" && visitData && (
         <div className="space-y-8">
-          <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm">
+          <div className="bg-white rounded-2xl border border-gray-100 p-8 shadow-sm">
             <div className="flex items-center justify-between mb-8">
               <h3 className="font-bold text-gray-900 flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-blue-600" /> Patient Inflow Trends
@@ -209,7 +209,7 @@ export default function ReportsPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm">
+            <div className="bg-white rounded-2xl border border-gray-100 p-8 shadow-sm">
               <h3 className="font-bold text-gray-900 mb-8 flex items-center gap-2">
                 <Target className="w-5 h-5 text-gray-400" /> Popular Specializations
               </h3>
@@ -223,7 +223,7 @@ export default function ReportsPage() {
               />
             </div>
             
-            <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm flex flex-col items-center justify-center text-center">
+            <div className="bg-white rounded-2xl border border-gray-100 p-8 shadow-sm flex flex-col items-center justify-center text-center">
               <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mb-6">
                 <Users className="w-10 h-10 text-blue-600" />
               </div>
@@ -240,7 +240,7 @@ export default function ReportsPage() {
       {/* Tab: Performance */}
       {tab === "performance" && performanceData && (
         <div className="space-y-8">
-          <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm">
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
             <div className="px-8 py-6 border-b border-gray-50 flex items-center justify-between">
               <h3 className="font-bold text-gray-900 flex items-center gap-2">
                 <BarChart3 className="w-5 h-5 text-gray-400" /> Doctor Efficiency Metrics
