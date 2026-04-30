@@ -73,7 +73,7 @@ function CreateAppointmentModal({ onClose, onSaved }: { onClose: () => void; onS
   useEffect(() => {
     if (step === 3 && selectedDoctor) {
       api.get("sessions", {
-        params: { doctor_id: selectedDoctor.doctor_id, status: "Open", limit: 20 }
+        params: { doctor_id: selectedDoctor.doctor_id, status: "open", limit: 20 }
       }).then((r) => setSessions(r.data.data)).catch(() => {});
     }
   }, [step, selectedDoctor]);
@@ -327,14 +327,13 @@ export default function AppointmentsPage() {
 
   async function handleStatusChange(id: string, newStatus: string, apt: Appointment) {
     try {
-      await api.patch(`appointments/${id}`, { status: newStatus });
+      await api.patch(`appointments/${id}/status`, { status: newStatus.toLowerCase() });
       toast.success(`Status updated to ${newStatus}`);
       
       // Auto-create payment if completed
       if (newStatus === "Completed" && apt.status !== "Completed") {
         await api.post("payments", {
           appointment_id: id,
-          amount: 2000, // mock amount since we don't have consultation_fee
         }).catch(() => {});
         toast.success("Payment invoice automatically generated!");
       }

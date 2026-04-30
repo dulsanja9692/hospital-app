@@ -1,18 +1,16 @@
 import axios from "axios";
 
 const rawBaseUrl =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "https://hospital-managemnt-system.vercel.app/api/v1";
+
+  process.env.NEXT_PUBLIC_API_URL || "https://hospital-managemnt-system.vercel.app/api/v1";
 
 const BASE_URL = rawBaseUrl.endsWith("/") ? rawBaseUrl : `${rawBaseUrl}/`;
 
 const api = axios.create({
   baseURL: BASE_URL,
+  // TEMPORARY FIX: Disabled withCredentials because backend is returning wildcard '*' for CORS.
+  // This allows login to work but breaks the httpOnly refresh token.
   withCredentials: false,
-  headers: {
-    "Accept": "application/json",
-    "Content-Type": "application/json",
-  },
 });
 
 // ── In-memory token storage (never localStorage) ──────────
@@ -23,16 +21,11 @@ export const setAccessToken = (token: string | null) => {
 };
 export const getAccessToken = () => accessToken;
 
-// ── Attach token & debug logging ──────────────────────────
+// ── Attach token ──────────────────────────────────────────
 api.interceptors.request.use((config) => {
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;
   }
-  const fullUrl = `${config.baseURL}${config.url}`;
-  console.log(`[API Request] ${config.method?.toUpperCase()} ${fullUrl}`, {
-    hasToken: !!accessToken,
-    headers: config.headers
-  });
   return config;
 });
 

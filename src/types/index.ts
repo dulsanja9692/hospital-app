@@ -43,6 +43,7 @@ export interface User {
   name: string;
   email: string;
   role: Role;
+  status?: string;
   created_at: string;
   branch?: Branch;
 }

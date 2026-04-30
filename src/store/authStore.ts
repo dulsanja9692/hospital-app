@@ -41,8 +41,12 @@ export const useAuthStore = create<AuthStore>((set) => ({
 
   setUser: (user, token) => {
     setAccessToken(token);
-    saveSession(user, token);
-    set({ user, isLoading: false });
+    const normalizedUser = user ? {
+      ...user,
+      role: typeof user.role === "object" ? (user.role as any).name : user.role
+    } : null;
+    saveSession(normalizedUser, token);
+    set({ user: normalizedUser, isLoading: false });
   },
 
   logout: () => {

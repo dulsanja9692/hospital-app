@@ -31,7 +31,18 @@ export default function RegisterPatientPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const payload = { ...form, age: Number(form.age) };
+      // Only include optional fields if they have values (§4.1)
+      const payload: Record<string, any> = {
+        name: form.name,
+        nic: form.nic,
+        phone: form.phone,
+      };
+      if (form.age) payload.age = Number(form.age);
+      if (form.gender) payload.gender = form.gender;
+      if (form.email) payload.email = form.email;
+      if (form.address) payload.address = form.address;
+      if (form.emergency_contact) payload.emergency_contact = form.emergency_contact;
+
       await api.post("patients", payload);
       toast.success("Patient registered successfully!");
       router.push("/patients");
@@ -99,10 +110,10 @@ export default function RegisterPatientPage() {
             {/* Age */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Age <span className="text-red-500">*</span>
+                Age
               </label>
               <input
-                type="number" required min={0} max={150}
+                type="number" min={0} max={150}
                 value={form.age} onChange={(e) => set("age", e.target.value)}
                 placeholder="e.g. 35"
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white

@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
   CreditCard, Search, Loader2, X, Printer,
@@ -145,8 +146,9 @@ function PaymentFormModal({ payment, onClose, onPaid }: {
   async function handlePay() {
     setLoading(true);
     try {
-      await api.post(`payments/${payment.payment_id}/pay`, {
-        method, amount: payment.total_amount,
+      await api.post(`payments/${payment.payment_id}/transactions`, {
+        method: method.toLowerCase(), 
+        amount: payment.total_amount,
       });
       toast.success("Payment recorded successfully!");
       onPaid();

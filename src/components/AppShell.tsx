@@ -7,7 +7,7 @@ import {
   Hospital, LayoutDashboard, UserCircle, Calendar,
   CreditCard, BarChart3, LogOut, ChevronRight, Menu,
   ShieldCheck, Stethoscope, ClipboardList,
-  Bell, FileText, X, Check, Clock, Trash2,
+  Bell, FileText, X, Check, Clock, Trash2, PieChart, ScrollText,
 } from "lucide-react";
 import { useInitAuth, useAuth } from "@/hooks/useAuth";
 import { useThemeStore } from "@/store/themeStore";
@@ -42,13 +42,13 @@ const NAV: NavItem[] = [
   { label: "Appointments", href: "/appointments",    icon: <Calendar className="w-4 h-4" /> },
   { label: "Medical",      href: "/medical-records", icon: <FileText className="w-4 h-4" />, roles: ["Super Admin","Hospital Admin","Doctor"] },
   { label: "Payments",     href: "/payments",        icon: <CreditCard className="w-4 h-4" /> },
+  { label: "Reports",      href: "/reports",         icon: <PieChart className="w-4 h-4" />, roles: ["Super Admin","Hospital Admin","Accountant"] },
   {
     label: "Permissions", href: "/permissions", icon: <ShieldCheck className="w-4 h-4" />,
     roles: ["Super Admin","Hospital Admin","Receptionist"],
     children: [
-      { label: "Hospitals",     href: "/permissions/hospitals", roles: ["Super Admin"] },
-      { label: "Branches",      href: "/permissions/branches",  roles: ["Super Admin","Hospital Admin","Manager"] },
       { label: "Users & Roles", href: "/permissions/users",     roles: ["Super Admin","Hospital Admin","Receptionist"] },
+      { label: "Audit Logs",    href: "/permissions/logs",      roles: ["Super Admin"] },
     ],
   },
 ];
@@ -289,6 +289,7 @@ function Sidebar({ userRole, userName, onClose }: {
   const roleColors: Record<Role, string> = {
     "Super Admin":    "bg-purple-100 text-purple-700",
     "Hospital Admin": "bg-blue-100 text-blue-700",
+    "Manager":        "bg-indigo-100 text-indigo-700",
     "Receptionist":   "bg-green-100 text-green-700",
     "Doctor":         "bg-teal-100 text-teal-700",
     "Accountant":     "bg-orange-100 text-orange-700",
@@ -298,7 +299,8 @@ function Sidebar({ userRole, userName, onClose }: {
     { label: "Overview",        items: NAV.slice(0, 1) },
     { label: "Core Operations", items: NAV.slice(1, 6) },
     { label: "Finance",         items: NAV.slice(6, 7) },
-    { label: "Analytics",       items: NAV.slice(7, 8) },
+    { label: "Insights",        items: NAV.slice(7, 8) },
+    { label: "Admin",           items: NAV.slice(8, 9) },
   ];
 
   return (

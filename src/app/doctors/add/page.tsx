@@ -14,37 +14,22 @@ interface Branch { branch_id: string; name: string; }
 export default function AddDoctorPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [hospitals, setHospitals] = useState<Hospital[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
   const { user, isLoading: authLoading } = useRequireAuth(["Super Admin", "Hospital Admin"]);
 
   const [form, setForm] = useState({
-    name: "", specialization: "", phone: "",
-    email: "", consultation_fee: "", status: "Active",
-    hospital_id: "", branch_id: "",
+    name: "",
+    specialization: "",
+    contact_number: "",
+    email: "",
+    qualifications: "",
+    experience: "",
+    bio: "",
+    consultation_fee: "",
+    effective_from: dayjs().format("YYYY-MM-DD"),
   });
 
-  useEffect(() => {
-    if (user?.role === "Super Admin") {
-      api.get("hospitals", { params: { limit: 100 } })
-        .then((r) => setHospitals(r.data.data))
-        .catch(() => {});
-    } else if (user?.hospital_id) {
-      set("hospital_id", user.hospital_id);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (form.hospital_id) {
-      api.get("branches", { params: { hospital_id: form.hospital_id, limit: 100 } })
-        .then((r) => setBranches(r.data.data))
-        .catch(() => {
-          api.get(`hospitals/${form.hospital_id}/branches/`)
-            .then((r) => setBranches(r.data.data))
-            .catch(() => setBranches([{ branch_id: "1", name: "Main Branch" }]));
-        });
-    }
-  }, [form.hospital_id]);
+  // No longer fetching hospitals or branches as per simplified management flow
+  useEffect(() => {}, []);
 
   function set(field: string, value: string) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -54,27 +39,21 @@ export default function AddDoctorPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      // Never send hospital_id in request bodies — backend reads it from JWT automatically
-      const { hospital_id, branch_id, ...doctorData } = form;
-      const res = await api.post("doctors", { 
-        ...doctorData, 
-        consultation_fee: Number(form.consultation_fee) 
-      });
-      const newDoc = res.data.data;
-      
-      // Auto-create a default session for the newly added doctor
-      if (newDoc?.doctor_id) {
-        await api.post("sessions", {
-          doctor_id: String(newDoc.doctor_id),
-          branch_id: String(form.branch_id),
-          session_date: dayjs().format("YYYY-MM-DD"),
-          start_time: "09:00",
-          end_time: "17:00",
-          max_patients: 20
-        }).catch(() => console.log("Auto-session generation failed"));
-      }
+      // Build payload per API docs §5.1
+      const payload: Record<string, any> = {
+        name: form.name,
+        specialization: form.specialization,
+        consultation_fee: Number(form.consultation_fee),
+        effective_from: form.effective_from,
+      };
+      if (form.contact_number) payload.contact_number = form.contact_number;
+      if (form.email) payload.email = form.email;
+      if (form.qualifications) payload.qualifications = form.qualifications;
+      if (form.experience) payload.experience = form.experience;
+      if (form.bio) payload.bio = form.bio;
 
-      toast.success("Doctor added and session opened!");
+      await api.post("doctors", payload);
+      toast.success("Doctor added successfully!");
       router.push("/doctors");
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -101,31 +80,6 @@ export default function AddDoctorPage() {
       <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-100 p-6 space-y-6">
         <div>
           <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-4 pb-2 border-b border-gray-100 flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-blue-500" /> Location Details
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-            {user?.role === "Super Admin" && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Hospital <span className="text-red-500">*</span></label>
-                <select required value={form.hospital_id} onChange={(e) => set("hospital_id", e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all">
-                  <option value="">Select Hospital</option>
-                  {hospitals.map((h) => <option key={h.hospital_id} value={h.hospital_id}>{h.name}</option>)}
-                </select>
-              </div>
-            )}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Branch <span className="text-red-500">*</span></label>
-              <select required value={form.branch_id} onChange={(e) => set("branch_id", e.target.value)}
-                disabled={!form.hospital_id && user?.role === "Super Admin"}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all disabled:opacity-50">
-                <option value="">Select Branch</option>
-                {branches.map((b) => <option key={b.branch_id} value={b.branch_id}>{b.name}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-4 pb-2 border-b border-gray-100 flex items-center gap-2">
             <Stethoscope className="w-4 h-4 text-teal-500" /> Doctor Information
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -144,17 +98,8 @@ export default function AddDoctorPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Status</label>
-              <select value={form.status} onChange={(e) => set("status", e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all">
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone <span className="text-red-500">*</span></label>
-              <input type="tel" required value={form.phone} onChange={(e) => set("phone", e.target.value)}
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Contact Number</label>
+              <input type="tel" value={form.contact_number} onChange={(e) => set("contact_number", e.target.value)}
                 placeholder="e.g. 0771234567"
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
             </div>
@@ -171,6 +116,33 @@ export default function AddDoctorPage() {
               <input type="number" required min={0} value={form.consultation_fee} onChange={(e) => set("consultation_fee", e.target.value)}
                 placeholder="e.g. 2000"
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Fee Effective From <span className="text-red-500">*</span></label>
+              <input type="date" required value={form.effective_from} onChange={(e) => set("effective_from", e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Qualifications</label>
+              <input type="text" value={form.qualifications} onChange={(e) => set("qualifications", e.target.value)}
+                placeholder="e.g. MBBS, MD (Cardiology)"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Experience</label>
+              <input type="text" value={form.experience} onChange={(e) => set("experience", e.target.value)}
+                placeholder="e.g. 12 years"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Bio</label>
+              <textarea rows={2} value={form.bio} onChange={(e) => set("bio", e.target.value)}
+                placeholder="Brief professional summary"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all resize-none" />
             </div>
           </div>
         </div>

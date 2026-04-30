@@ -29,9 +29,11 @@ interface MedicalRecord {
 
 interface Prescription {
   id: string;
-  medicine: string;
+  medicine_name: string;
   dose: string;
-  instruct: string;
+  frequency: string;
+  duration: string;
+  instructions: string;
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -50,19 +52,19 @@ function MedicalRecordForm({ appointment, onSaved, onClose }: {
   onClose: () => void;
 }) {
   const [form, setForm] = useState({
-    disease: appointment.medical_record?.disease ?? "",
-    note:    appointment.medical_record?.note ?? "",
+    diagnosis: appointment.medical_record?.disease ?? "",
+    notes:     appointment.medical_record?.note ?? "",
   });
   const [prescriptions, setPrescriptions] = useState<Omit<Prescription, "id">[]>(
     appointment.medical_record?.prescriptions?.map((p) => ({
-      medicine: p.medicine, dose: p.dose, instruct: p.instruct,
-    })) ?? [{ medicine: "", dose: "", instruct: "" }]
+      medicine_name: p.medicine, dose: p.dose, frequency: "", duration: "", instructions: p.instruct,
+    })) ?? [{ medicine_name: "", dose: "", frequency: "", duration: "", instructions: "" }]
   );
   const [loading, setLoading] = useState(false);
   const isEdit = !!appointment.medical_record;
 
   function addPrescription() {
-    setPrescriptions((p) => [...p, { medicine: "", dose: "", instruct: "" }]);
+    setPrescriptions((p) => [...p, { medicine_name: "", dose: "", frequency: "", duration: "", instructions: "" }]);
   }
   function removePrescription(i: number) {
     setPrescriptions((p) => p.filter((_, idx) => idx !== i));
@@ -77,9 +79,8 @@ function MedicalRecordForm({ appointment, onSaved, onClose }: {
     try {
       const payload = {
         ...form,
-        patient_id: appointment.patient.patient_id,
         appointment_id: appointment.appointment_id,
-        prescriptions: prescriptions.filter((p) => p.medicine.trim()),
+        prescriptions: prescriptions.filter((p) => p.medicine_name?.trim()),
       };
       if (isEdit) {
         await api.put(`medical-records/${appointment.medical_record!.record_id}`, payload);
@@ -114,7 +115,7 @@ function MedicalRecordForm({ appointment, onSaved, onClose }: {
           {/* Disease */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Diagnosis / Disease <span className="text-red-500">*</span></label>
-            <input type="text" required value={form.disease} onChange={(e) => setForm((f) => ({ ...f, disease: e.target.value }))}
+            <input type="text" required value={form.diagnosis} onChange={(e) => setForm((f) => ({ ...f, diagnosis: e.target.value }))}
               placeholder="e.g. Hypertension, Type 2 Diabetes"
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white dark:bg-gray-800 placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
           </div>
@@ -122,7 +123,7 @@ function MedicalRecordForm({ appointment, onSaved, onClose }: {
           {/* Notes */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Clinical Notes</label>
-            <textarea rows={3} value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
+            <textarea rows={3} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
               placeholder="Add examination findings, observations, instructions…"
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white dark:bg-gray-800 placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all resize-none" />
           </div>
@@ -141,22 +142,34 @@ function MedicalRecordForm({ appointment, onSaved, onClose }: {
             <div className="space-y-3">
               {prescriptions.map((p, i) => (
                 <div key={i} className="grid grid-cols-12 gap-2 bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
-                  <div className="col-span-5">
+                  <div className="col-span-4">
                     <label className="text-xs text-gray-500 mb-1 block">Medicine</label>
-                    <input type="text" value={p.medicine} onChange={(e) => updatePrescription(i, "medicine", e.target.value)}
+                    <input type="text" value={p.medicine_name} onChange={(e) => updatePrescription(i, "medicine_name", e.target.value)}
                       placeholder="e.g. Metformin"
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white dark:bg-gray-700 focus:border-blue-400 focus:ring-1 focus:ring-blue-100" />
                   </div>
-                  <div className="col-span-3">
-                    <label className="text-xs text-gray-500 mb-1 block">Dose</label>
+                  <div className="col-span-2">
+                    <label className="text-xs text-gray-500 mb-1 block">Dosage</label>
                     <input type="text" value={p.dose} onChange={(e) => updatePrescription(i, "dose", e.target.value)}
                       placeholder="500mg"
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white dark:bg-gray-700 focus:border-blue-400 focus:ring-1 focus:ring-blue-100" />
                   </div>
-                  <div className="col-span-3">
+                  <div className="col-span-2">
+                    <label className="text-xs text-gray-500 mb-1 block">Frequency</label>
+                    <input type="text" value={p.frequency} onChange={(e) => updatePrescription(i, "frequency", e.target.value)}
+                      placeholder="3x daily"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white dark:bg-gray-700 focus:border-blue-400 focus:ring-1 focus:ring-blue-100" />
+                  </div>
+                  <div className="col-span-2">
                     <label className="text-xs text-gray-500 mb-1 block">Instructions</label>
-                    <input type="text" value={p.instruct} onChange={(e) => updatePrescription(i, "instruct", e.target.value)}
+                    <input type="text" value={p.instructions} onChange={(e) => updatePrescription(i, "instructions", e.target.value)}
                       placeholder="After meals"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white dark:bg-gray-700 focus:border-blue-400 focus:ring-1 focus:ring-blue-100" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-xs text-gray-500 mb-1 block">Duration</label>
+                    <input type="text" value={p.duration} onChange={(e) => updatePrescription(i, "duration", e.target.value)}
+                      placeholder="5 days"
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white dark:bg-gray-700 focus:border-blue-400 focus:ring-1 focus:ring-blue-100" />
                   </div>
                   <div className="col-span-1 flex items-end justify-center pb-1">
@@ -261,7 +274,7 @@ function AppointmentRow({ apt, onRecord, onRefresh }: {
                   <div className="text-xs font-semibold text-gray-700 mb-1">Prescriptions</div>
                   {apt.medical_record.prescriptions.map((p, i) => (
                     <div key={i} className="text-xs text-gray-600">
-                      • {p.medicine} {p.dose} — {p.instruct}
+                      • {p.medicine_name} {p.dose} — {p.instructions}
                     </div>
                   ))}
                 </div>

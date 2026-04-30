@@ -4,10 +4,11 @@ import toast from "react-hot-toast";
 import {
   Users, Plus, Search, Pencil, Loader2, X,
   ChevronLeft, ChevronRight, ShieldCheck, UserCircle, AlertCircle,
+  Key, CheckCircle2, XCircle
 } from "lucide-react";
 import { useRequireAuth } from "@/hooks/useAuth";
 import api from "@/lib/api";
-import { User, Role, Hospital, CREATABLE_ROLES } from "@/types";
+import { User, Role, CREATABLE_ROLES, AuthUser } from "@/types";
 import { cn, getErrorMessage } from "@/lib/utils";
 import dayjs from "dayjs";
 
@@ -28,52 +29,58 @@ function RoleBadge({ role }: { role: Role }) {
   );
 }
 
-function UserModal({ currentUser, editUser, hospitals, onClose, onSaved }: {
-  currentUser: AuthUser; editUser?: User; hospitals: Hospital[];
+function UserModal({ currentUser, editUser, onClose, onSaved }: {
+  currentUser: AuthUser; editUser?: User;
   onClose: () => void; onSaved: () => void;
 }) {
   const isEdit = !!editUser;
-  const currentUserRole = currentUser.role;
-  const creatableRoles = CREATABLE_ROLES[currentUserRole];
+  const currentUserRole = currentUser.role as Role;
+  const creatableRoles = CREATABLE_ROLES[currentUserRole] || [];
+  const [roles, setRoles] = useState<{ role_id: number; name: string }[]>([]);
+  const [rolesLoading, setRolesLoading] = useState(true);
   const [form, setForm] = useState({
     name: editUser?.name ?? "",
     email: editUser?.email ?? "",
     password: "",
-    role: (editUser?.role ?? creatableRoles[0] ?? "") as Role | "",
-    hospital_id: editUser?.hospital_id ?? (currentUser.role !== "Super Admin" ? currentUser.hospital_id : ""),
-    branch_id: editUser?.branch_id ?? "",
+    role_id: "",
   });
-  const [branches, setBranches] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (form.hospital_id) {
-      api.get("branches", { params: { hospital_id: form.hospital_id, limit: 100 } })
-        .then(r => setBranches(r.data.data))
-        .catch(() => {
-          api.get(`hospitals/${form.hospital_id}/branches/`)
-            .then(r => setBranches(r.data.data))
-            .catch(() => setBranches([]));
-        });
-    } else {
-      setBranches([]);
-    }
-  }, [form.hospital_id]);
+    api.get("admin/roles")
+      .then((res) => {
+        const allRoles = res.data.data ?? [];
+        // Filter to only roles this user can create
+        const filtered = allRoles.filter((r: any) => creatableRoles.includes(r.name));
+        setRoles(filtered);
+        // Pre-select role when editing
+        if (editUser) {
+          const match = allRoles.find((r: any) => r.name === editUser.role);
+          if (match) setForm(f => ({ ...f, role_id: String(match.role_id) }));
+        } else if (filtered.length > 0) {
+          setForm(f => ({ ...f, role_id: String(filtered[0].role_id) }));
+        }
+      })
+      .catch(() => toast.error("Failed to load roles"))
+      .finally(() => setRolesLoading(false));
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.role) { toast.error("Please select a role"); return; }
+    if (!form.role_id) { toast.error("Please select a role"); return; }
     setLoading(true);
     try {
-      const payload: Record<string, string> = { name: form.name, email: form.email, role: form.role };
+      const payload: Record<string, any> = {
+        name: form.name,
+        email: form.email,
+        role_id: Number(form.role_id),
+      };
       if (!isEdit) payload.password = form.password;
-      if (form.hospital_id) payload.hospital_id = form.hospital_id;
-      if (form.branch_id) payload.branch_id = form.branch_id;
       if (isEdit) {
-        await api.put(`users/${editUser!.user_id}/`, payload);
+        await api.put(`admin/users/${editUser!.user_id}`, payload);
         toast.success("User updated successfully");
       } else {
-        await api.post("users/", payload);
+        await api.post("admin/users", payload);
         toast.success("User created successfully");
       }
       onSaved(); onClose();
@@ -121,33 +128,15 @@ function UserModal({ currentUser, editUser, hospitals, onClose, onSaved }: {
           )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Role <span className="text-red-500">*</span></label>
-            <select required value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as Role }))}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all">
-              <option value="">Select a role</option>
-              {creatableRoles.map((r) => <option key={r} value={r}>{r}</option>)}
+            <select required value={form.role_id} onChange={(e) => setForm((f) => ({ ...f, role_id: e.target.value }))}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+              disabled={rolesLoading}>
+              <option value="">{rolesLoading ? "Loading roles…" : "Select a role"}</option>
+              {roles.map((r) => <option key={r.role_id} value={r.role_id}>{r.name}</option>)}
             </select>
             <p className="text-xs text-gray-400 mt-1">As {currentUserRole}, you can create: {creatableRoles.join(", ") || "none"}</p>
           </div>
-          {currentUserRole === "Super Admin" && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Hospital</label>
-              <select value={form.hospital_id} onChange={(e) => setForm((f) => ({ ...f, hospital_id: e.target.value, branch_id: "" }))}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all">
-                <option value="">— No specific hospital —</option>
-                {hospitals.map((h) => <option key={h.hospital_id} value={h.hospital_id}>{h.name}</option>)}
-              </select>
-            </div>
-          )}
-          {(form.hospital_id || (currentUserRole !== "Super Admin" && currentUserRole !== "Manager")) && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Branch</label>
-              <select value={form.branch_id} onChange={(e) => setForm((f) => ({ ...f, branch_id: e.target.value }))}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all">
-                <option value="">— No specific branch —</option>
-                {branches.map((b) => <option key={b.branch_id} value={b.branch_id}>{b.name}</option>)}
-              </select>
-            </div>
-          )}
+
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose}
               className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
@@ -164,8 +153,16 @@ function UserModal({ currentUser, editUser, hospitals, onClose, onSaved }: {
   );
 }
 
-function UserRow({ user, currentUserRole, onEdit }: { user: User; currentUserRole: Role; onEdit: (u: User) => void; }) {
-  const canEdit = CREATABLE_ROLES[currentUserRole].includes(user.role);
+function UserRow({ user, currentUserRole, onEdit, onPasswordReset, onStatusToggle }: { 
+  user: any; 
+  currentUserRole: Role; 
+  onEdit: (u: any) => void; 
+  onPasswordReset: (u: any) => void;
+  onStatusToggle: (u: any) => void;
+}) {
+  const canEdit = (CREATABLE_ROLES[currentUserRole] || []).includes(user.role);
+  const status = user.status?.toUpperCase() || "ACTIVE";
+
   return (
     <tr className="hover:bg-gray-50 transition-colors group">
       <td className="px-5 py-3.5">
@@ -180,17 +177,87 @@ function UserRow({ user, currentUserRole, onEdit }: { user: User; currentUserRol
         </div>
       </td>
       <td className="px-5 py-3.5"><RoleBadge role={user.role} /></td>
-      <td className="px-5 py-3.5 text-sm text-gray-500">{user.branch?.name ?? "—"}</td>
+      <td className="px-5 py-3.5">
+        <button 
+          onClick={() => canEdit && onStatusToggle(user)}
+          disabled={!canEdit}
+          className={cn(
+            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all",
+            status === "ACTIVE" 
+              ? "bg-green-100 text-green-700 hover:bg-green-200" 
+              : "bg-red-100 text-red-700 hover:bg-red-200",
+            !canEdit && "cursor-default hover:bg-opacity-100"
+          )}>
+          {status === "ACTIVE" ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+          {status}
+        </button>
+      </td>
       <td className="px-5 py-3.5 text-xs text-gray-400">{dayjs(user.created_at).format("MMM D, YYYY")}</td>
       <td className="px-5 py-3.5 text-right">
-        {canEdit && (
-          <button onClick={() => onEdit(user)}
-            className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-all">
-            <Pencil className="w-3.5 h-3.5" />
-          </button>
-        )}
+        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
+          {canEdit && (
+            <>
+              <button onClick={() => onPasswordReset(user)}
+                className="p-1.5 rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-all" title="Reset Password">
+                <Key className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={() => onEdit(user)}
+                className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-all" title="Edit Profile">
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+            </>
+          )}
+        </div>
       </td>
     </tr>
+  );
+}
+
+function PasswordResetModal({ user, onClose }: { user: any; onClose: () => void }) {
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await api.patch(`admin/users/${user.user_id}/password`, { new_password: password });
+      toast.success("Password reset successfully");
+      onClose();
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 animate-fade-in" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm animate-slide-in">
+        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+          <h3 className="font-bold text-gray-900">Reset Password</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="p-3 bg-blue-50 rounded-xl flex gap-3 items-start">
+            <AlertCircle className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+            <p className="text-xs text-blue-700 font-medium">Resetting password for <strong>{user.name}</strong>. The user will need this new password to login.</p>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1.5 tracking-wider">New Password</label>
+            <input type="password" required minLength={6} value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter new secure password"
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
+          </div>
+          <button type="submit" disabled={loading}
+            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-blue-100">
+            {loading ? "Resetting..." : "Reset Password"}
+          </button>
+        </form>
+      </div>
+    </div>
   );
 }
 
@@ -201,45 +268,51 @@ export default function UsersPage() {
   const { user: currentUser, isLoading: authLoading } = useRequireAuth(ALLOWED);
 
   const [users, setUsers] = useState<User[]>([]);
-  const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<Role | "">("");
-  const [hospitalFilter, setHospitalFilter] = useState("");
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState({ total: 0, page: 1, limit: 15 });
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<User | undefined>();
+  const [resetTarget, setResetTarget] = useState<User | undefined>();
 
-  const canCreateUsers = currentUser ? CREATABLE_ROLES[currentUser.role].length > 0 : false;
+  const canCreateUsers = currentUser ? (CREATABLE_ROLES[currentUser.role] || []).length > 0 : false;
 
-  const fetchHospitals = useCallback(() => {
-    if (currentUser.role === "Super Admin") {
-      api.get("hospitals/", { params: { limit: 100 } })
-        .then(r => setHospitals(r.data.data))
-        .catch(() => setHospitals([]));
-    }
-  }, [currentUser.role]);
 
-  useEffect(() => { fetchHospitals(); }, [fetchHospitals]);
 
   const fetchUsers = useCallback(async () => {
     if (!currentUser) return;
     setLoading(true);
     try {
-      const res = await api.get("users/", { params: { search, role: roleFilter, hospital_id: hospitalFilter, page } });
-      setUsers(res.data.data);
+      const res = await api.get("admin/users", { params: { search, role: roleFilter, page } });
+      const normalized = res.data.data.map((u: any) => ({
+        ...u,
+        role: typeof u.role === "object" ? u.role.name : u.role
+      }));
+      setUsers(normalized);
       setMeta(res.data.meta ?? { total: res.data.data.length, page: 1, limit: 10 });
     } catch (err: unknown) {
       toast.error(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [currentUser, search, roleFilter, hospitalFilter, page]);
+  }, [currentUser, search, roleFilter, page]);
+
+  const handleStatusToggle = async (user: User) => {
+    const newStatus = (user.status?.toUpperCase() === "ACTIVE") ? "INACTIVE" : "ACTIVE";
+    try {
+      await api.patch(`admin/users/${user.user_id}/status`, { status: newStatus });
+      toast.success(`User marked as ${newStatus}`);
+      fetchUsers();
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  };
 
   useEffect(() => { if (currentUser) fetchUsers(); }, [currentUser, fetchUsers]);
-  useEffect(() => { setPage(1); }, [search, roleFilter, hospitalFilter]);
+  useEffect(() => { setPage(1); }, [search, roleFilter]);
 
   const viewableRoles = currentUser?.role === "Super Admin" ? ALL_ROLES
     : currentUser?.role === "Hospital Admin" ? ALL_ROLES.filter((r) => r !== "Super Admin")
@@ -276,13 +349,7 @@ export default function UsersPage() {
           <option value="">All roles</option>
           {viewableRoles.map((r) => <option key={r} value={r}>{r}</option>)}
         </select>
-        {currentUser.role === "Super Admin" && (
-          <select value={hospitalFilter} onChange={(e) => setHospitalFilter(e.target.value)}
-            className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-white text-gray-600 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all">
-            <option value="">All hospitals</option>
-            {hospitals.map((h) => <option key={h.hospital_id} value={h.hospital_id}>{h.name}</option>)}
-          </select>
-        )}
+
       </div>
 
 
@@ -291,8 +358,8 @@ export default function UsersPage() {
         <ShieldCheck className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
         <p className="text-sm text-blue-700">
           <span className="font-semibold">Your role ({currentUser.role}):</span>{" "}
-          {CREATABLE_ROLES[currentUser.role].length > 0
-            ? `You can create and edit: ${CREATABLE_ROLES[currentUser.role].join(", ")}`
+          {(CREATABLE_ROLES[currentUser.role] || []).length > 0
+            ? `You can create and edit: ${(CREATABLE_ROLES[currentUser.role] || []).join(", ")}`
             : "You do not have permission to create or edit users."}
         </p>
       </div>
@@ -305,8 +372,8 @@ export default function UsersPage() {
           <div className="flex flex-col items-center justify-center h-48 text-gray-400">
             <UserCircle className="w-10 h-10 mb-3 opacity-30" />
             <p className="text-sm font-medium">No users found</p>
-            {(search || roleFilter || hospitalFilter) && (
-              <button onClick={() => { setSearch(""); setRoleFilter(""); setHospitalFilter(""); }}
+            {(search || roleFilter) && (
+              <button onClick={() => { setSearch(""); setRoleFilter(""); }}
                 className="text-xs text-blue-500 hover:underline mt-1">Clear filters</button>
             )}
           </div>
@@ -317,7 +384,7 @@ export default function UsersPage() {
                 <tr className="border-b border-gray-100">
                   <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">User</th>
                   <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Role</th>
-                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Branch</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Joined</th>
                   <th className="px-5 py-3.5" />
                 </tr>
@@ -325,7 +392,9 @@ export default function UsersPage() {
               <tbody className="divide-y divide-gray-50">
                 {users.map((u) => (
                   <UserRow key={u.user_id} user={u} currentUserRole={currentUser.role}
-                    onEdit={(u) => { setEditTarget(u); setModalOpen(true); }} />
+                    onEdit={(u) => { setEditTarget(u); setModalOpen(true); }}
+                    onPasswordReset={(u) => setResetTarget(u)}
+                    onStatusToggle={handleStatusToggle} />
                 ))}
               </tbody>
             </table>
@@ -352,8 +421,12 @@ export default function UsersPage() {
       </div>
 
       {modalOpen && (
-        <UserModal currentUser={currentUser} editUser={editTarget} hospitals={hospitals}
+        <UserModal currentUser={currentUser} editUser={editTarget}
           onClose={() => setModalOpen(false)} onSaved={fetchUsers} />
+      )}
+
+      {resetTarget && (
+        <PasswordResetModal user={resetTarget} onClose={() => setResetTarget(undefined)} />
       )}
     </div>
   );

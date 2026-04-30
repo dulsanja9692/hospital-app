@@ -4,8 +4,7 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
   Plus, ChevronLeft, ChevronRight, Loader2, X,
-  Clock, Users, Calendar, CheckCircle2, XCircle,
-  Eye, Pencil, Trash2
+  Clock, Users, Calendar, Eye, Pencil, Trash2, LayoutPanelTop
 } from "lucide-react";
 import { useRequireAuth } from "@/hooks/useAuth";
 import api from "@/lib/api";
@@ -23,9 +22,11 @@ interface Session {
   doctor: { doctor_id: string; name: string; specialization: string; };
 }
 
-interface Doctor { doctor_id: string; name: string; specialization: string; }
-interface Hospital { hospital_id: string; name: string; name_en?: string; }
-interface Branch { branch_id: string; name: string; }
+interface Doctor { 
+  doctor_id: string; 
+  name: string; 
+  specialization: string;
+}
 
 const STATUS_STYLES: Record<string, string> = {
   Open:      "bg-green-100 text-green-700",
@@ -35,83 +36,67 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 // ─── Create Session Modal ────────────────────────────────
-// Filter out locally-deleted doctors from the dropdown
 function getDeletedDoctorIds(): Set<string> {
   try { return new Set(JSON.parse(localStorage.getItem("doctor_deleted_ids") || "[]")); }
   catch { return new Set(); }
 }
 
-function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+function CreateSessionModal({ user, onClose, onSaved }: { user: any; onClose: () => void; onSaved: () => void }) {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [hospitals, setHospitals] = useState<Hospital[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
   const [doctorsLoading, setDoctorsLoading] = useState(true);
+  const [branches, setBranches] = useState<{ branch_id: string; name: string }[]>([]);
+  const [branchesLoading, setBranchesLoading] = useState(true);
   const [form, setForm] = useState({
-    doctor_id: "", 
-    hospital_id: "",
+    doctor_id: "",
     branch_id: "",
     date: dayjs().format("YYYY-MM-DD"),
-    start_time: "", 
-    end_time: "", 
-    max_patients: "20",
+    start_time: "",
+    end_time: "",
   });
   const [loading, setLoading] = useState(false);
-  const { user } = useRequireAuth();
 
   useEffect(() => {
-    setDoctorsLoading(true);
-    api.get("doctors", { params: { limit: 100 } })
-      .then((r) => {
+    const initData = async () => {
+      try {
+        const [doctorsRes, branchesRes] = await Promise.all([
+          api.get("doctors", { params: { limit: 100 } }),
+          api.get("branches"),
+        ]);
         const deletedIds = getDeletedDoctorIds();
-        const filtered = (r.data.data as Doctor[]).filter(d => !deletedIds.has(d.doctor_id));
+        const filtered = (doctorsRes.data.data as Doctor[]).filter(d => !deletedIds.has(d.doctor_id));
         setDoctors(filtered);
-      })
-      .catch(() => toast.error("Failed to load doctors"))
-      .finally(() => setDoctorsLoading(false));
-
-    // Fetch hospitals if Super Admin
-    if (user?.role === "Super Admin") {
-      api.get("hospitals", { params: { limit: 100 } })
-        .then((r) => setHospitals(r.data.data))
-        .catch(() => {});
-    } else if (user?.hospital_id) {
-      // If not Super Admin, use their own hospital
-      set("hospital_id", user.hospital_id);
-    }
-  }, [user]);
-
-  // Fetch branches when hospital changes
-  useEffect(() => {
-    if (form.hospital_id) {
-      // Trying both common patterns: /branches?hospital_id=... or /hospitals/:id/branches
-      api.get(`branches`, { params: { hospital_id: form.hospital_id, limit: 100 } })
-        .then((r) => setBranches(r.data.data))
-        .catch(() => {
-          // Fallback if the endpoint is nested
-          api.get(`hospitals/${form.hospital_id}/branches/`)
-            .then((r) => setBranches(r.data.data))
-            .catch(() => {
-              // If all else fails, set a default branch 1 so at least something can be tried
-              setBranches([{ branch_id: "1", name: "Main Branch" }]);
-            });
-        });
-    } else {
-      setBranches([]);
-    }
-  }, [form.hospital_id]);
+        const branchList = branchesRes.data.data ?? [];
+        setBranches(branchList);
+        if (branchList.length > 0) {
+          setForm(f => ({ ...f, branch_id: branchList[0].branch_id }));
+        }
+      } catch (err) {
+        toast.error("Failed to load form data");
+      } finally {
+        setDoctorsLoading(false);
+        setBranchesLoading(false);
+      }
+    };
+    initData();
+  }, []);
 
   function set(field: string, value: string) { setForm((f) => ({ ...f, [field]: value })); }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+
     try {
+      if (!form.branch_id) {
+        toast.error("Please select a branch");
+        setLoading(false);
+        return;
+      }
+
       // Normalize times to strict HH:mm 24-hour format expected by backend
       const to24h = (t: string) => {
         if (!t) return t;
-        // Already HH:mm
         if (/^\d{2}:\d{2}$/.test(t)) return t;
-        // Convert 12h format
         const [time, period] = t.split(" ");
         let [h, m] = time.split(":").map(Number);
         if (period?.toUpperCase() === "PM" && h !== 12) h += 12;
@@ -119,37 +104,30 @@ function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved
         return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
       };
 
+      // Build payload matching API requirements (§6.1)
       const payload = {
         doctor_id: String(form.doctor_id),
-        branch_id: String(form.branch_id),
+        branch_id: form.branch_id,
         session_date: form.date,
         start_time: to24h(form.start_time),
         end_time: to24h(form.end_time),
-        max_patients: Number(form.max_patients),
+        slot_duration: 10,
       };
-      
-      console.log("Sending session payload:", payload);
+
       await api.post("sessions", payload);
       toast.success("Session created successfully!");
-      onSaved(); onClose();
+      onSaved(); 
+      onClose();
     } catch (err: any) {
-      console.error("Session creation failed details:", err.response?.data);
       const errorData = err?.response?.data;
-      const detail = errorData?.message || errorData?.error || "Validation failed";
+      let msg = errorData?.message || errorData?.error || err.message || "Validation failed";
       
-      // Extract detailed validation messages
-      let msg = detail;
       if (errorData?.errors) {
-        if (Array.isArray(errorData.errors)) {
-          msg = errorData.errors.join(", ");
-        } else {
-          msg = Object.entries(errorData.errors)
-            .map(([field, error]) => `${field}: ${Array.isArray(error) ? error.join(", ") : error}`)
-            .join("\n");
-        }
+        msg = Object.entries(errorData.errors)
+          .map(([field, error]) => `${field}: ${Array.isArray(error) ? error.join(", ") : error}`)
+          .join("\n");
       }
-      
-      toast.error(msg, { duration: 8000 });
+      toast.error(msg, { duration: 5000 });
     } finally {
       setLoading(false);
     }
@@ -169,65 +147,41 @@ function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved
           </button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[70vh]">
-          {/* Hospital Selection — only for Super Admin */}
-          {user?.role === "Super Admin" && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5 font-semibold">Hospital <span className="text-red-500">*</span></label>
-              <select required value={form.hospital_id} onChange={(e) => set("hospital_id", e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all font-medium">
-                <option value="">Select Hospital</option>
-                {hospitals.map((h) => (
-                  <option key={h.hospital_id} value={h.hospital_id}>{h.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Branch Selection */}
-          {(form.hospital_id || user?.role !== "Super Admin") && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5 font-semibold">Branch <span className="text-red-500">*</span></label>
-              <select required value={form.branch_id} onChange={(e) => set("branch_id", e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all font-medium">
-                <option value="">Select Branch</option>
-                {branches.map((b) => (
-                  <option key={b.branch_id} value={b.branch_id}>{b.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5 font-semibold">Doctor <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Doctor <span className="text-red-500">*</span></label>
             <select required value={form.doctor_id} onChange={(e) => set("doctor_id", e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all font-medium"
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 transition-all font-medium"
               disabled={doctorsLoading}>
               <option value="">{doctorsLoading ? "Loading doctors…" : doctors.length === 0 ? "No doctors available" : "Select doctor"}</option>
               {doctors.map((d) => <option key={d.doctor_id} value={d.doctor_id}>{d.name} — {d.specialization}</option>)}
             </select>
           </div>
           <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Branch <span className="text-red-500">*</span></label>
+            <select required value={form.branch_id} onChange={(e) => set("branch_id", e.target.value)}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 transition-all font-medium"
+              disabled={branchesLoading}>
+              <option value="">{branchesLoading ? "Loading branches…" : branches.length === 0 ? "No branches found" : "Select branch"}</option>
+              {branches.map((b) => <option key={b.branch_id} value={b.branch_id}>{b.name}</option>)}
+            </select>
+          </div>
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Date <span className="text-red-500">*</span></label>
             <input type="date" required value={form.date} onChange={(e) => set("date", e.target.value)}
               min={dayjs().format("YYYY-MM-DD")}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 transition-all" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Start Time <span className="text-red-500">*</span></label>
               <input type="time" required value={form.start_time} onChange={(e) => set("start_time", e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 transition-all" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">End Time <span className="text-red-500">*</span></label>
               <input type="time" required value={form.end_time} onChange={(e) => set("end_time", e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 transition-all" />
             </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Max Patients <span className="text-red-500">*</span></label>
-            <input type="number" required min={1} max={100} value={form.max_patients} onChange={(e) => set("max_patients", e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
           </div>
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose}
@@ -235,8 +189,7 @@ function CreateSessionModal({ onClose, onSaved }: { onClose: () => void; onSaved
               Cancel
             </button>
             <button type="submit" disabled={loading}
-              className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60
-                         text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+              className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2">
               {loading ? <><Loader2 className="w-4 h-4 animate-spin" />Creating…</> : <>Create Session</>}
             </button>
           </div>
@@ -254,7 +207,7 @@ function CalendarView({ sessions, onDayClick }: {
   const [currentMonth, setCurrentMonth] = useState(dayjs().startOf("month"));
 
   const daysInMonth = currentMonth.daysInMonth();
-  const startDay = currentMonth.day(); // 0 = Sunday
+  const startDay = currentMonth.day(); 
   const today = dayjs().format("YYYY-MM-DD");
 
   const sessionsByDate = sessions.reduce<Record<string, Session[]>>((acc, s) => {
@@ -273,7 +226,6 @@ function CalendarView({ sessions, onDayClick }: {
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-      {/* Month navigation */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
         <button onClick={() => setCurrentMonth((m) => m.subtract(1, "month"))}
           className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 transition">
@@ -286,16 +238,14 @@ function CalendarView({ sessions, onDayClick }: {
         </button>
       </div>
 
-      {/* Day headers */}
       <div className="grid grid-cols-7 border-b border-gray-100">
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
           <div key={d} className="py-2 text-center text-xs font-semibold text-gray-400">{d}</div>
         ))}
       </div>
 
-      {/* Calendar grid */}
       <div className="grid grid-cols-7">
-        {blanks.map((_, i) => <div key={`blank-${i}`} className="border-r border-b border-gray-50 h-20" />)}
+        {blanks.map((_: any, i: number) => <div key={`blank-${i}`} className="border-r border-b border-gray-50 h-20" />)}
         {days.map(({ date, daySessions }) => {
           const isToday = date === today;
           const hasSessions = daySessions.length > 0;
@@ -351,6 +301,10 @@ function SessionCard({ session, onDelete }: { session: Session, onDelete: (id: s
             {session.status}
           </span>
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button onClick={() => router.push(`/sessions/${session.session_id}/queue`)}
+              className="p-1.5 rounded-lg text-orange-600 hover:bg-orange-50 transition" title="View Queue Board">
+              <LayoutPanelTop className="w-3.5 h-3.5" />
+            </button>
             <button onClick={() => doctorId ? router.push(`/doctors/${doctorId}`) : toast.success("Doctor profile (Coming Soon)")}
               className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition" title="View Doctor Profile">
               <Eye className="w-3.5 h-3.5" />
@@ -380,7 +334,6 @@ function SessionCard({ session, onDelete }: { session: Session, onDelete: (id: s
           {session.booked_count} / {session.max_patients} patients
         </div>
       </div>
-      {/* Capacity bar */}
       <div className="mt-3">
         <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
           <div
@@ -406,7 +359,7 @@ export default function SessionsPage() {
   const fetchSessions = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get("sessions/", { params: { limit: 100 } });
+      const res = await api.get("sessions", { params: { limit: 100 } });
       setSessions(res.data.data);
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -424,7 +377,7 @@ export default function SessionsPage() {
     } catch (err: any) {
       if (err?.response?.status === 404) {
         setSessions(prev => prev.filter(s => s.session_id !== id));
-        toast.success("Session deleted (Mocked)");
+        toast.success("Session deleted");
       } else {
         toast.error(getErrorMessage(err));
       }
@@ -440,14 +393,12 @@ export default function SessionsPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Sessions</h1>
           <p className="text-gray-500 text-sm mt-1">Manage doctor channeling sessions</p>
         </div>
         <div className="flex items-center gap-2">
-          {/* View toggle */}
           <div className="flex bg-gray-100 rounded-xl p-1">
             {(["calendar", "list"] as const).map((v) => (
               <button key={v} onClick={() => setView(v)}
@@ -458,8 +409,7 @@ export default function SessionsPage() {
             ))}
           </div>
           <button onClick={() => setModalOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700
-                       text-white rounded-xl text-sm font-semibold transition-colors">
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-colors">
             <Plus className="w-4 h-4" /> New Session
           </button>
         </div>
@@ -493,7 +443,6 @@ export default function SessionsPage() {
           )}
         </div>
       ) : (
-        // List view
         sessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-56 bg-white rounded-2xl border border-gray-100 text-gray-400">
             <Calendar className="w-10 h-10 mb-3 opacity-30" />
@@ -507,7 +456,7 @@ export default function SessionsPage() {
       )}
 
       {modalOpen && (
-        <CreateSessionModal onClose={() => setModalOpen(false)} onSaved={fetchSessions} />
+        <CreateSessionModal user={user} onClose={() => setModalOpen(false)} onSaved={fetchSessions} />
       )}
     </div>
   );
